@@ -1495,6 +1495,9 @@ dialog.modal::backdrop {
   overflow-y: auto;
   flex-shrink: 0;
 }
+#format .input-warnings {
+  flex-shrink: 0;
+}
 #format > .copy-error {
   position: absolute;
   z-index: 20;
@@ -1516,4 +1519,14 @@ dialog.modal::backdrop {
   #home header nav > a.icon-link {
     display: inline-flex;
   }
+}
+.input-warnings {
+  padding: 8px 24px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #8c713d;
+  background: #fff9ef;
+  border-top: 1px solid var(--line);
+  max-height: 96px;
+  overflow: auto;
 }

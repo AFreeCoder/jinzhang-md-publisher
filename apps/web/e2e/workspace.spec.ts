@@ -632,8 +632,11 @@ test('编辑保留上一帧，复制等待最新版本，短视口没有整页�
   await editor.fill('原来的正文');
   await expect(page.frameLocator('iframe').locator('body')).toContainText('原来的正文');
   await editor.fill('最新正文');
+  // 防抖期间按钮保持可用，点击等待最新排版结果。
+  expect(await page.getByRole('button', { name: '复制到公众号', exact: true }).isDisabled()).toBe(
+    false,
+  );
   await expect(page.locator('iframe')).toBeVisible();
-  await expect(page.getByRole('button', { name: '复制到公众号', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '复制到公众号', exact: true }).click();
   await expect
     .poll(() => page.evaluate(async () => navigator.clipboard.readText()))
@@ -726,4 +729,15 @@ test('复制反馈保持尺寸，首页手机入口与图标可用', async ({ pa
   const icon = await page.locator('link[rel="icon"]').first().getAttribute('href');
   expect((await page.request.get(icon!)).ok()).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('home-mobile.png') });
+});
+test('被忽略或清理的原文内容在编辑区底部提示，修正后提示消失', async ({ page }) => {
+  await page.goto('/format');
+  const editor = page.getByRole('textbox', { name: 'Markdown 原文' });
+  await editor.fill('---\n注意: 这是重点\n---\n\n正文内容\n\n<script>alert(1)</script>');
+  const warnings = page.locator('.input-warnings');
+  await expect(warnings).toContainText('已忽略 frontmatter');
+  await expect(warnings).toContainText('已清理不支持或不安全的 HTML');
+  await expect(page.frameLocator('iframe').locator('article')).toContainText('正文内容');
+  await editor.fill('正文内容');
+  await expect(warnings).toHaveCount(0);
 });

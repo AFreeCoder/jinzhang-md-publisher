@@ -27,6 +27,7 @@ import { previewDocument } from '@jinzhang/core/preview';
 import { BrowserAssetResolver, CanvasImageCodec } from '@jinzhang/core/browser';
 import {
   CopyImageStore,
+  StaleTaskError,
   TaskVersion,
   writeClipboard,
   clearTransitCache,
@@ -91,13 +92,37 @@ export default function Workspace() {
   const preparedCache = useRef<{ key: string; value: PreparedArticle } | undefined>(undefined);
   const urls = useRef<string[]>([]);
   const inputOnly = useRef(false);
+  const renderWaiter = useRef<
+    | {
+        version: number;
+        promise: Promise<RenderResult>;
+        resolve: (output: RenderResult) => void;
+        reject: (reason: unknown) => void;
+      }
+    | undefined
+  >(undefined);
   const fixed = doc.fixed[doc.platform];
+  // 复制点击落在防抖或排版进行中时，等待当前版本的结果，而不是复制旧正文或禁用按钮。
+  function awaitRender(token: number) {
+    if (renderWaiter.current?.version === token) return renderWaiter.current;
+    renderWaiter.current?.reject(new StaleTaskError());
+    let resolve!: (output: RenderResult) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<RenderResult>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    promise.catch(() => {});
+    renderWaiter.current = { version: token, promise, resolve, reject };
+    return renderWaiter.current;
+  }
   function update(change: Partial<DocumentState>, isInput = false) {
     if (change.markdown !== undefined)
       for (const range of pendingInsertions.current)
         moveRange(range, docRef.current.markdown, change.markdown);
     inputOnly.current = isInput;
     version.current.change();
+    awaitRender(version.current.current());
     controller.current?.abort();
     setCopyPhase('idle');
     setMissingCopy(false);
@@ -152,6 +177,7 @@ export default function Workspace() {
     if (!ready) return;
     let live = true;
     const token = version.current.current();
+    const waiter = awaitRender(token);
     const delay = inputOnly.current ? 300 : 0;
     inputOnly.current = false;
     const timer = setTimeout(async () => {
@@ -206,8 +232,10 @@ export default function Workspace() {
         setTimeout(() => oldUrls.forEach(URL.revokeObjectURL), 1500);
         setResult(output);
         setPreview(previewDocument(output, html, { hideCover: true, date: config.date }));
+        waiter.resolve(output);
       } catch (error) {
         allocated.forEach(URL.revokeObjectURL);
+        waiter.reject(error);
         if (live && token === version.current.current())
           setNotice(error instanceof Error ? error.message : '排版失败，请检查原文。');
       }
@@ -368,9 +396,9 @@ export default function Workspace() {
     if (previousArticle) replaceArticle(previousArticle.markdown, previousArticle.title);
   }
   function beginCopy() {
-    if (!result || result.version !== String(version.current.current()) || !doc.markdown.trim())
-      return;
-    if (result.images.some((i) => i.source.kind === 'missing')) {
+    if (!doc.markdown.trim()) return;
+    const fresh = result?.version === String(version.current.current()) ? result : undefined;
+    if (fresh?.images.some((i) => i.source.kind === 'missing')) {
       setMissingCopy(true);
       document.querySelector('.missing-images')?.scrollIntoView({ block: 'nearest' });
       document
@@ -381,8 +409,10 @@ export default function Workspace() {
     executeCopy();
   }
   function executeCopy() {
-    if (!result || result.version !== String(version.current.current())) return;
     const token = version.current.current();
+    const fresh = result?.version === String(token) ? result : undefined;
+    const waiter = renderWaiter.current?.version === token ? renderWaiter.current : undefined;
+    if (!fresh && !waiter) return;
     const platform = doc.platform;
     setBusy(true);
     setCopyPhase('working');
@@ -397,11 +427,26 @@ export default function Workspace() {
         () => version.current.assert(token),
         setMessage,
       );
-      const payload = placeImages(result, store).then((p) => {
-        version.current.assert(token);
-        setMessage('正文已准备完成。');
-        return p;
-      });
+      // 排版尚未完成时等待本版本结果；剪贴板写入仍在点击的同步调用链里发起。
+      const source = fresh
+        ? Promise.resolve(fresh)
+        : waiter
+          ? waiter.promise
+          : Promise.reject(new StaleTaskError());
+      const payload = source
+        .then((output) => {
+          version.current.assert(token);
+          if (output.images.some((i) => i.source.kind === 'missing')) {
+            setMissingCopy(true);
+            throw new Error('图片缺失，请先补齐图片。');
+          }
+          return placeImages(output, store);
+        })
+        .then((p) => {
+          version.current.assert(token);
+          setMessage('正文已准备完成。');
+          return p;
+        });
       job = { version: token, payload, store };
       currentJob.current = job;
       payload.catch(() => {});
@@ -510,6 +555,15 @@ export default function Workspace() {
   const uploading = pendingUploads.filter((ref) => referencedImages.has(ref)).length;
   const currentUploadFailed = uploadFailed.filter((ref) => referencedImages.has(ref));
   const unique = (images: ImageRef[]) => [...new Map(images.map((i) => [i.original, i])).values()];
+  // 缺图由补图面板承担，接口预算不是复制门槛；其余排版警告在编辑区底部常驻提示。
+  const hiddenWarnings = new Set(['IMAGE_MISSING', 'CONTENT_NEAR_LIMIT']);
+  const visibleWarnings = [
+    ...new Map(
+      (result?.warnings || [])
+        .filter((w) => !hiddenWarnings.has(w.code))
+        .map((w) => [w.code + (w.ref || ''), w] as const),
+    ).values(),
+  ];
   return (
     <main
       id="format"
@@ -556,13 +610,7 @@ export default function Workspace() {
             </button>
             <button
               className="primary"
-              disabled={
-                !result ||
-                result.version !== String(version.current.current()) ||
-                !doc.markdown.trim() ||
-                busy ||
-                (doc.platform === 'zhihu' && uploading > 0)
-              }
+              disabled={!doc.markdown.trim() || busy || (doc.platform === 'zhihu' && uploading > 0)}
               onClick={beginCopy}
             >
               {busy
@@ -706,6 +754,13 @@ export default function Workspace() {
             <div className="copy-error" role="status">
               <span>图片上传失败，本地图片已保留</span>
               <button onClick={() => void uploadImages(currentUploadFailed)}>重试上传</button>
+            </div>
+          )}
+          {visibleWarnings.length > 0 && (
+            <div className="input-warnings" role="status">
+              {visibleWarnings.map((w) => (
+                <div key={w.code + (w.ref || '')}>{w.message}</div>
+              ))}
             </div>
           )}
           <div className="input-bottom">
