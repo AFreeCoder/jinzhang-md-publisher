@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/.next
+**/.env*
+**/dist
+test-results
+playwright-report
+prototypes
+.claude

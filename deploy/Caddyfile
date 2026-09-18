@@ -1,0 +1,13 @@
+jinzhang.ink {
+    request_body {
+        max_size 8KB
+    }
+    reverse_proxy 127.0.0.1:17622 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+    }
+}
+
+www.jinzhang.ink {
+    redir https://jinzhang.ink{uri} permanent
+}
