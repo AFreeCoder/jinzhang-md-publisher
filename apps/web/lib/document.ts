@@ -36,8 +36,8 @@ export function freshDocument(): DocumentState {
     fixed: { wechat: fixed(), zhihu: fixed() },
   };
 }
-export function restoreDocument(raw: string | null): DocumentState {
-  if (!raw) return freshDocument();
+export function restoreDocument(raw: string | null, origin = ''): DocumentState {
+  if (!raw) return initialDocument(origin);
   const d = JSON.parse(raw);
   if (
     !d ||
@@ -92,5 +92,71 @@ export function templates(f: FixedContent) {
     footer: `${f.footerStyle === '细线落款' ? '---\n' : ''}${safe(f.closing)}${collection}`,
   };
 }
-export const sampleMarkdown =
-  '# 把写作还给写作\n\n写完一篇文章，应该是松一口气的时刻。\n而不是另一场排版工作的开始。\n\n## 01 让内容，回到中心\n\n我们在不同的地方写作，却常常在发布前做着相同的事：调整标题、处理图片、为每个平台重新排版。\n\n**好的工具，应该把这些琐碎接过去。**\n\n> 少一些来回复制，多一些认真表达。\n\n## 02 一份原文，两种呈现\n\n- 在公众号，让样式与文字相得益彰\n- 在知乎，让内容结构清楚完整\n- 发布之前，始终由你做最后的确认\n\n```typescript\nconst article = await prepare(markdown);\nconst result = render(article);\n```\n\n| 平台 | 呈现方式 |\n| --- | --- |\n| 微信公众号 | 主题与样式 |\n| 知乎 | 内容结构 |\n\n写作的下一步，可以很轻。';
+export const sampleTitle = '把写作还给写作';
+/** 示例稿覆盖常用 Markdown 语法；配图跟随当前站点，本地与线上都能直接显示。 */
+export function sampleMarkdown(origin: string) {
+  return `# ${sampleTitle}
+
+写完一篇文章，应该是松一口气的时刻，而不是另一场排版工作的开始。
+
+这份示例用到了常见的 Markdown 语法。改一改左边的原文，右边就是粘贴到平台后的样子。
+
+## 01 文字与强调
+
+**好的工具，应该把琐碎接过去**。正文里可以有*斜体的语气*、~~删掉的想法~~和 \`行内代码\`，也可以放一个[链接](https://jinzhang.ink)。
+
+### 小标题用三级
+
+标题层级建议控制在三级以内，读者更容易跟上。
+
+## 02 引用
+
+> 少一些来回复制，多一些认真表达。
+
+> 引用可以有多段。
+>
+> 第二段同样支持**加粗**与 \`代码\`。
+
+## 03 列表
+
+- 在公众号，让样式与文字相得益彰
+- 在知乎，让内容结构清楚完整
+  - 嵌套条目会缩进显示
+  - 层级不宜太深
+- 发布之前，始终由你做最后的确认
+
+1. 贴入 Markdown
+2. 选择平台与主题
+3. 复制到平台编辑器
+
+- [x] 写完正文
+- [ ] 检查排版
+
+## 04 代码与表格
+
+\`\`\`typescript
+// 一份原文，两种呈现
+const article = await prepare(markdown);
+const result = render(article, { theme: 'sspai' });
+\`\`\`
+
+| 平台 | 呈现方式 | 图片 |
+| :--- | :---: | ---: |
+| 微信公众号 | 主题与样式 | 随正文内嵌 |
+| 知乎 | 内容结构 | 平台自动转存 |
+
+## 05 图片、分隔线与脚注
+
+![锦章示例配图](${origin}/sample-cover.jpg)
+
+---
+
+写作的下一步，可以很轻[^1]。
+
+[^1]: 脚注会整理到文末的「注释」里。
+`;
+}
+/** 首次打开（本浏览器没有保存过内容）时的文档：预置示例稿，让成品预览立刻可见。 */
+export function initialDocument(origin: string): DocumentState {
+  return { ...freshDocument(), markdown: sampleMarkdown(origin), title: sampleTitle };
+}

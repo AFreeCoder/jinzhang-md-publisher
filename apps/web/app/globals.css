@@ -1168,21 +1168,23 @@ body {
 .preview-paper {
   height: 100%;
   min-height: 0;
+  overflow: hidden;
+  outline: 5px solid transparent;
 }
 .preview-paper.wide-preview {
   width: 100%;
   max-width: 860px;
-  box-shadow: none;
+  box-shadow:
+    0 12px 30px #25344b00,
+    0 2px 6px #25344b00;
 }
 .preview-paper.mobile-preview {
   width: 420px;
   border-radius: 28px;
-  outline: 5px solid #e3e6ea;
-  overflow: hidden;
+  outline-color: #e3e6ea;
   box-shadow:
     0 12px 30px #25344b12,
     0 2px 6px #25344b08;
-  animation: phone-preview-enter 180ms ease-out;
 }
 .phone-preview .preview-panel {
   background: #f6f7f9;
@@ -1190,23 +1192,13 @@ body {
 .phone-preview .preview-scroll {
   padding: 24px 12px;
 }
-@keyframes phone-preview-enter {
-  from {
-    opacity: 0.65;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .preview-paper.mobile-preview {
-    animation: none;
-  }
-}
 .workspace.phone-preview {
   grid-template-columns: minmax(320px, 1fr) minmax(0, 444px) 260px;
+}
+@media (min-width: 1500px) {
+  .workspace.phone-preview {
+    grid-template-columns: minmax(400px, 1fr) minmax(0, 444px) 285px;
+  }
 }
 @media (max-width: 1100px) {
   .workspace.phone-preview {
@@ -1219,20 +1211,19 @@ body {
   }
 }
 .preview-modes {
-  display: flex;
-  gap: 3px;
   font-size: 11px;
+  padding: 2px;
+  border-radius: 7px;
+  background: #f1f2f3;
 }
 .preview-modes button {
-  padding: 4px 8px;
+  padding: 4px 10px;
   border: 0;
   color: #777;
   background: transparent;
 }
 .preview-modes button[aria-pressed='true'] {
-  background: #f1f2f3;
   color: #292d29;
-  border-radius: 5px;
 }
 .toast {
   position: fixed;
@@ -1529,4 +1520,261 @@ dialog.modal::backdrop {
   border-top: 1px solid var(--line);
   max-height: 96px;
   overflow: auto;
+}
+
+/* 排版工作区动效：过渡只改变必要属性，可被打断；减少动态效果时只保留颜色与透明度。 */
+#format {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --mode-duration: 340ms;
+}
+#format button {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms var(--ease-out);
+}
+#format button:not(:disabled):active {
+  transform: scale(0.97);
+}
+/* 分段控件：选中态是一块滑动的底板，位置与宽度由脚本按选中按钮实测后写入变量。 */
+#format .segment,
+#format .preview-modes,
+#format .mobile-pane-tabs {
+  position: relative;
+  isolation: isolate;
+}
+#format .preview-modes {
+  display: flex;
+}
+#format .segment::before,
+#format .preview-modes::before,
+#format .mobile-pane-tabs::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: var(--pill-inset);
+  bottom: var(--pill-inset);
+  left: 0;
+  width: var(--pill-w, 0);
+  transform: translateX(var(--pill-x, 0));
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 1px 3px #0000001a;
+  transition:
+    transform 260ms var(--ease-drawer),
+    width 260ms var(--ease-drawer);
+}
+#format .segment {
+  --pill-inset: 3px;
+}
+#format .preview-modes {
+  --pill-inset: 2px;
+}
+#format .segment button,
+#format .segment button.active,
+#format .preview-modes button,
+#format .mobile-pane-tabs button {
+  background: transparent;
+  box-shadow: none;
+}
+#format .segment button:active,
+#format .preview-modes button:active,
+#format .mobile-pane-tabs button:active {
+  transform: none;
+}
+@media (max-width: 720px) {
+  #format .mobile-pane-tabs {
+    --pill-inset: 3px;
+    gap: 0;
+    width: max-content;
+    margin: 8px auto;
+    padding: 3px;
+    border-radius: 8px;
+    background: #f1f1f1;
+  }
+  #format .mobile-pane-tabs::before {
+    border-radius: 6px;
+  }
+}
+/* 自适应 / 手机：栏宽与画布宽度由脚本按实测值过渡，这里同步外观。 */
+#format .preview-paper {
+  transition:
+    border-radius var(--mode-duration) var(--ease-drawer),
+    outline-color var(--mode-duration) var(--ease-drawer),
+    box-shadow var(--mode-duration) var(--ease-drawer);
+}
+#format .preview-panel {
+  transition: background-color var(--mode-duration) ease;
+}
+#format .preview-scroll {
+  transition: padding var(--mode-duration) var(--ease-drawer);
+}
+#format .theme-option i {
+  transition: transform 200ms var(--ease-out);
+}
+#format .theme-option.active i {
+  transform: translateY(-1px);
+}
+#format .switch {
+  transition: background-color 160ms ease;
+}
+#format .switch:before {
+  transition: transform 200ms var(--ease-drawer);
+}
+#format .fixed-fields,
+#format .toast,
+#format .copy-error,
+#format .input-warnings,
+#format .missing-images {
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 220ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+#format .toast {
+  @starting-style {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+}
+#format .fixed-fields {
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+/* 更多操作：从右上角的触发点展开。 */
+#format .workspace-menu nav {
+  transform-origin: top right;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+/* 弹窗：进入与退出都有过渡，退出更快。 */
+#format dialog.modal {
+  opacity: 0;
+  transform: scale(0.97);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    overlay 140ms allow-discrete,
+    display 140ms allow-discrete;
+}
+#format dialog.modal:not([open]) {
+  pointer-events: none;
+}
+#format dialog.modal[open] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 220ms var(--ease-out),
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+#format dialog.modal::backdrop {
+  background: #24281e00;
+  backdrop-filter: blur(0);
+  transition:
+    background-color 140ms ease,
+    backdrop-filter 140ms ease,
+    overlay 140ms allow-discrete,
+    display 140ms allow-discrete;
+}
+#format dialog.modal[open]::backdrop {
+  background: #24281e55;
+  backdrop-filter: blur(3px);
+  transition:
+    background-color 220ms ease,
+    backdrop-filter 220ms ease,
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+}
+@starting-style {
+  #format dialog.modal[open]::backdrop {
+    background: #24281e00;
+    backdrop-filter: blur(0);
+  }
+}
+/* 窄屏的排版设置是抽屉：从右侧滑入，遮罩淡入。 */
+@media (max-width: 1100px) {
+  #format .settings {
+    display: block;
+    visibility: hidden;
+    transform: translateX(100%);
+    transition:
+      transform 220ms var(--ease-drawer),
+      visibility 0s linear 220ms;
+  }
+  #format .settings.open {
+    visibility: visible;
+    transform: none;
+    transition:
+      transform 320ms var(--ease-drawer),
+      visibility 0s;
+  }
+  #format .settings-backdrop {
+    transition: opacity 240ms ease;
+    @starting-style {
+      opacity: 0;
+    }
+  }
+  #format .settings-backdrop:active {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #format .segment::before,
+  #format .preview-modes::before,
+  #format .mobile-pane-tabs::before,
+  #format .preview-scroll,
+  #format .switch:before,
+  #format .theme-option i {
+    transition: none;
+  }
+  #format button:not(:disabled):active,
+  #format .theme-option.active i {
+    transform: none;
+  }
+  #format .fixed-fields,
+  #format .toast,
+  #format .copy-error,
+  #format .input-warnings,
+  #format .missing-images,
+  #format .workspace-menu nav,
+  #format dialog.modal,
+  #format dialog.modal[open] {
+    transition-property: opacity, overlay, display;
+    @starting-style {
+      transform: none;
+    }
+  }
+  #format .toast {
+    @starting-style {
+      transform: translateX(-50%);
+    }
+  }
+  #format dialog.modal {
+    transform: none;
+  }
+  @media (max-width: 1100px) {
+    #format .settings,
+    #format .settings.open {
+      transition: none;
+    }
+  }
 }

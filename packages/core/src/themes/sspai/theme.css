@@ -42,24 +42,50 @@
 }
 .jz blockquote {
   margin: 22px 0;
-  padding: 8px 16px;
+  padding: 12px 16px;
   border-left: 3px solid #ac493a;
   background: #f7f7f4;
   color: #70766a;
 }
+.jz blockquote p,
+.jz blockquote ul,
+.jz blockquote ol {
+  margin: 10px 0;
+}
+.jz blockquote p:first-child,
+.jz blockquote ul:first-child,
+.jz blockquote ol:first-child {
+  margin-top: 0;
+}
+.jz blockquote p:last-child,
+.jz blockquote ul:last-child,
+.jz blockquote ol:last-child {
+  margin-bottom: 0;
+}
 .jz pre {
   font-family: Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
   white-space: pre;
   word-wrap: normal;
-  padding: 18px;
+  margin: 20px 0;
+  padding: 16px 18px;
   background: #f5f6f5;
   color: #39443f;
 }
 .jz code {
   font-family: Menlo, Consolas, monospace;
   font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f6f1ee;
+  color: #9a4234;
+}
+.jz pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #39443f;
 }
 .jz ul,
 .jz ol {
@@ -68,6 +94,13 @@
 }
 .jz li {
   margin: 7px 0;
+}
+.jz .task-list-item {
+  list-style: none;
+  margin-left: -20px;
+}
+.jz .jz-subitem {
+  margin: 4px 0;
 }
 .jz img {
   max-width: 100%;
