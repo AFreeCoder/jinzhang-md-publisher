@@ -84,6 +84,13 @@ async function parse(markdown: string, warnings: Warning[]): Promise<Root> {
               : undefined;
         if (url !== undefined && node.position) imageUrls.set(node.position.start.offset, url);
       });
+      // 中文段落里的软换行不是词间空格；保留会在成品里多出一个空隙。
+      visit(tree, 'text', (node: any) => {
+        node.value = node.value.replace(
+          /([\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]) *\n *(?=[\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef])/g,
+          '$1',
+        );
+      });
       visit(tree, 'link', (node: any, index, parent: any) => {
         if (index === undefined || !parent || !node.position) return;
         const source = markdown.slice(node.position.start.offset, node.position.end.offset);
@@ -279,9 +286,11 @@ function flattenLists(parent: Root | Element, depth = 0) {
       let n = Number(node.properties.start || 1);
       node.tagName = 'section';
       node.properties.style = 'margin-left:1em';
+      node.properties.className = ['jz-sublist'];
       for (const child of node.children) {
         if (child.type !== 'element' || child.tagName !== 'li') continue;
         child.tagName = 'section';
+        child.properties.className = ['jz-subitem'];
         child.children.unshift({ type: 'text', value: ordered ? `${n++}. ` : '• ' });
       }
     }
@@ -292,11 +301,8 @@ function movePunctuation(parent: Root | Element) {
   for (let i = 0; i < parent.children.length - 1; i++) {
     const a = parent.children[i],
       b = parent.children[i + 1];
-    if (
-      a.type === 'element' &&
-      ['strong', 'em', 'a', 'code', 'span'].includes(a.tagName) &&
-      b.type === 'text'
-    ) {
+    // 链接与行内代码自带下划线、底色，标点移进去会一起被装饰，故只处理纯强调。
+    if (a.type === 'element' && ['strong', 'em', 'span'].includes(a.tagName) && b.type === 'text') {
       const mark = b.value.match(/^[，。！？；：、）】》]/)?.[0];
       if (mark) {
         a.children.push({ type: 'text', value: mark });
@@ -318,7 +324,13 @@ function dialect(tree: Root, platform: 'wechat' | 'zhihu', degraded: Warning[]) 
   visit(tree, 'element', (node, index, parent) => {
     if (!parent || index === undefined) return;
     if (node.tagName === 'input') {
-      parent.children[index] = { type: 'text', value: node.properties.checked ? '☑ ' : '☐ ' };
+      // 原文在复选框后已有一个空格，这里不再补，避免出现两个空格。
+      const next = parent.children[index + 1];
+      const spaced = next?.type === 'text' && /^\s/.test(next.value);
+      parent.children[index] = {
+        type: 'text',
+        value: (node.properties.checked ? '☑' : '☐') + (spaced ? '' : ' '),
+      };
       return;
     }
     if (node.tagName === 'a' && node.properties.dataFootnoteRef !== undefined) {
@@ -357,6 +369,8 @@ function dialect(tree: Root, platform: 'wechat' | 'zhihu', degraded: Warning[]) 
     if (platform === 'wechat') {
       if (node.properties.dataFootnoteBackref !== undefined) {
         parent.children[index] = { type: 'text', value: '' };
+        const before = parent.children[index - 1];
+        if (before?.type === 'text') before.value = before.value.replace(/\s+$/, '');
         return;
       }
       if (node.tagName === 'div') node.tagName = 'section';
@@ -432,11 +446,30 @@ export function render(
     visit(tree, 'element', (node, index, parent) => {
       if (!parent || index === undefined || !['pre', 'table'].includes(node.tagName)) return;
       if (parent.type === 'element' && parent.properties.dataScroll) return;
+      // 滚动容器自成格式化上下文，内部外边距不再与前后段落合并；把外边距交给容器，间距才与其他块一致。
+      let margin = '';
+      node.properties.style = [
+        ...String(node.properties.style || '')
+          .split(';')
+          .filter((declaration) => {
+            if (!/^margin(-top|-bottom)?:/.test(declaration)) return !!declaration;
+            margin += `;${declaration}`;
+            return false;
+          }),
+        'margin:0',
+      ].join(';');
       parent.children[index] = element('section', [node], {
-        style: 'overflow-x:auto;max-width:100%',
+        style: `overflow-x:auto;max-width:100%${margin}`,
         dataScroll: true,
       });
-      if (node.tagName === 'pre')
+      if (node.tagName === 'pre') {
+        // 围栏末尾的换行不是一行代码，留着会在代码块底部多出一个空行。
+        const texts: { value: string }[] = [];
+        visit(node, 'text', (text) => {
+          texts.push(text);
+        });
+        const last = texts.at(-1);
+        if (last) last.value = last.value.replace(/\n+$/, '');
         visit(node, 'text', (text, i, p) => {
           if (!p || i === undefined) return;
           const chunks = text.value.replace(/^ +/gm, (s) => '\u00a0'.repeat(s.length)).split('\n');
@@ -452,6 +485,7 @@ export function render(
           p.children.splice(i, 1, ...(nodes as Element['children']));
           return i + nodes.length;
         });
+      }
       return 'skip';
     });
   }

@@ -29,6 +29,27 @@ test('手机画布与预览栏一起收窄，正文不过度留白且小屏不�
   await page.getByRole('button', { name: '自适应', exact: true }).click();
   await expect(body).toHaveCSS('padding-left', '22px');
 });
+test('自适应与手机切换连贯过渡且可中途折返，减少动态效果时直接到位', async ({ page }) => {
+  await page.goto('/format');
+  await page.frameLocator('iframe').locator('article').waitFor();
+  const running = () =>
+    page.evaluate(() => document.querySelector('.workspace')!.getAnimations().length);
+  const paperWidth = () =>
+    page.evaluate(() => document.querySelector('.preview-paper')!.getBoundingClientRect().width);
+  const wide = await paperWidth();
+  await page.getByRole('button', { name: '手机', exact: true }).click();
+  expect(await running()).toBeGreaterThan(0);
+  // 过渡中途折返：从当前宽度继续，而不是跳回起点或终点。
+  await page.getByRole('button', { name: '自适应', exact: true }).click();
+  const turning = await paperWidth();
+  expect(turning).toBeGreaterThan(420);
+  expect(turning).toBeLessThanOrEqual(wide);
+  await expect.poll(paperWidth).toBe(wide);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: '手机', exact: true }).click();
+  expect(await running()).toBe(0);
+  await expect(page.locator('.preview-panel')).toHaveCSS('width', '444px');
+});
 test('新建保留设置与上一稿，刷新后恢复，取消不丢内容', async ({ page }) => {
   await page.goto('/format');
   const editor = page.getByRole('textbox', { name: 'Markdown 原文' });
@@ -390,11 +411,29 @@ test('两平台预览、移动布局和清除只作用于当前站点数据', as
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /让文字，.*锦绣成章/ })).toBeVisible();
   await page.getByRole('link', { name: '打开在线排版' }).click();
-  await page.getByText('···', { exact: true }).click();
-  await page.getByRole('button', { name: '载入示例', exact: true }).click();
-  await expect(
-    page.frameLocator('iframe').getByRole('heading', { name: '01 让内容，回到中心' }),
-  ).toBeVisible();
+  // 首次打开即预置覆盖常见语法的示例稿，成品立刻可见。
+  const article = page.frameLocator('iframe').locator('article');
+  await expect(article.getByRole('heading', { name: '01 文字与强调' })).toBeVisible();
+  for (const selector of [
+    'strong',
+    'em',
+    'del',
+    'code',
+    'a',
+    'blockquote',
+    'ul',
+    'ol',
+    'pre',
+    'table',
+    'img',
+    'hr',
+    'sup',
+  ])
+    await expect(article.locator(selector).first()).toBeAttached();
+  await expect(article.locator('img')).toHaveJSProperty('complete', true);
+  expect(
+    await article.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth),
+  ).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Mac', exact: true }).click();
   await expect(page.frameLocator('iframe').locator('pre')).toHaveCSS(
     'background-color',
@@ -409,12 +448,20 @@ test('两平台预览、移动布局和清除只作用于当前站点数据', as
   await expect(page.getByRole('button', { name: '排版设置', exact: true })).toBeFocused();
   await page.getByRole('button', { name: '排版设置', exact: true }).click();
   await page.getByRole('button', { name: '关闭设置 ×' }).click();
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Markdown 原文' }).fill('只存在本浏览器的草稿');
   await page.getByText('···', { exact: true }).click();
   await page.getByRole('button', { name: '清除本地数据', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: '清除本地数据', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue('');
+  // 清除后回到首次打开的状态：草稿不再保留，刷新前后都是示例稿。
+  await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue(
+    /^# 把写作还给写作/,
+  );
+  expect(await page.evaluate(() => localStorage.getItem('jinzhang.document.v1'))).toBeNull();
   await page.reload();
-  await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue('');
+  await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue(
+    /^# 把写作还给写作/,
+  );
 });
 
 test('剪贴板权限失败后复用已上传图片，重试不会重复上传', async ({ page }) => {

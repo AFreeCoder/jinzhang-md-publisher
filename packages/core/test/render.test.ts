@@ -147,6 +147,49 @@ describe('平台规则补充', () => {
     expect(r.html).toContain('• 二级');
     expect(r.html).toContain('重点。</strong>');
   });
+  it('链接与行内代码后的中文标点留在元素外，不被下划线或底色一起装饰', async () => {
+    const r = render(await make('见[链接](https://example.test)。再看 `code`，结束。'));
+    expect(r.html).toContain('链接</a>。');
+    expect(r.html).toContain('code</code>，');
+  });
+  it('中文软换行不产生空格，西文软换行保留词间空格', async () => {
+    for (const platform of ['wechat', 'zhihu'] as const) {
+      const r = render(await make('第一行，\n第二行。\n\nhello\nworld', platform));
+      expect(r.text).toContain('第一行，第二行。');
+      expect(r.text).toMatch(/hello\sworld/);
+    }
+  });
+  it('引用首末段不叠加外边距，代码块与表格的外边距交给滚动容器', async () => {
+    const r = render(
+      await make('> 第一段\n>\n> 第二段\n\n```js\nconst x = 1;\n```\n\n| a |\n| - |\n| 1 |'),
+    );
+    expect(r.html).toMatch(/<blockquote[^>]*>\s*<p style="[^"]*margin-top:0[^"]*">第一段/);
+    expect(r.html).toMatch(/<p style="[^"]*margin-bottom:0[^"]*">第二段/);
+    expect(r.html).toContain('<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre');
+    expect(r.html).toContain(
+      '<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table',
+    );
+    expect(r.html).toMatch(/<pre style="[^"]*margin:0[^"]*">/);
+    expect(r.html).toMatch(/<table[^>]*style="[^"]*margin:0[^"]*">/);
+    expect(r.html).not.toContain('<br></code>');
+  });
+  it('任务条目不显示圆点，同一列表里的普通条目不受影响，复选框后只留一个空格', async () => {
+    const r = render(await make('- 普通条目\n- [x] 完成\n- [ ] 未完成'));
+    expect(r.html).toMatch(/<li style="[^"]*list-style:none[^"]*">☑/);
+    expect(r.html).toMatch(/<li style="margin:7px 0">普通条目/);
+    expect(r.html).toContain('☑ 完成');
+    expect(r.html).toContain('☐ 未完成');
+  });
+  it('Mac 主题深色代码块使用浅色高亮，行内代码有底色且不影响代码块', async () => {
+    const r = render(await make('行内 `code`\n\n```js\nconst x = "a"; // 注释\n```'), {
+      theme: 'mac',
+    });
+    expect(r.html).toContain('background:#eef1f5;color:#44586f">code</code>');
+    expect(r.html).toMatch(/<pre style="[^"]*background:#282d35[^"]*">/);
+    expect(r.html).toMatch(/<code style="[^"]*background:transparent;color:#e2e5ea[^"]*">/);
+    expect(r.html).toContain('<span style="color:#e892a0">const</span>');
+    expect(r.html).not.toContain('color:#a04b57');
+  });
 });
 
 describe('标准文章跨主题与平台基线', () => {

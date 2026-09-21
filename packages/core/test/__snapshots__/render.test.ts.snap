@@ -2,20 +2,20 @@
 
 exports[`共享渲染 > 公众号任务列表、代码、三套主题输出稳定 > mac 1`] = `
 "<section style="font-family:-apple-system,BlinkMacSystemFont,&#x22;PingFang SC&#x22;,sans-serif;font-size:15px;line-height:1.9;color:#343a34;word-wrap:break-word"><h2 style="font-size:19px;color:#51667d;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">标题</h2>
-<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">☑  完成</li><li style="margin:7px 0">☐  未完成</li></ul>
-<section style="overflow-x:auto;max-width:100%"><pre style="font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.7;white-space:pre;word-wrap:normal;padding:18px;background:#282d35;color:#e2e5ea;border-radius:8px"><code style="font-family:Menlo,Consolas,monospace;font-size:13px">  <span style="color:#a04b57">const</span> x = <span style="color:#ab7245">1</span>;<br>  <span>console</span>.<span style="color:#4f6f91">log</span>(x);<br></code></pre></section></section>"
+<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 未完成</li></ul>
+<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#282d35;color:#e2e5ea;border-radius:8px;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#e2e5ea">  <span style="color:#e892a0">const</span> x = <span style="color:#e6b17e">1</span>;<br>  <span>console</span>.<span style="color:#8dbbea">log</span>(x);</code></pre></section></section>"
 `;
 
 exports[`共享渲染 > 公众号任务列表、代码、三套主题输出稳定 > native 1`] = `
 "<section style="font-family:-apple-system,BlinkMacSystemFont,&#x22;PingFang SC&#x22;,sans-serif;font-size:15px;line-height:1.9;color:#343a34;word-wrap:break-word"><h2 style="font-size:19px;color:#526d64;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">标题</h2>
-<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">☑  完成</li><li style="margin:7px 0">☐  未完成</li></ul>
-<section style="overflow-x:auto;max-width:100%"><pre style="font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.7;white-space:pre;word-wrap:normal;padding:18px;background:#f5f6f5;color:#39443f"><code style="font-family:Menlo,Consolas,monospace;font-size:13px">  <span style="color:#a04b57">const</span> x = <span style="color:#ab7245">1</span>;<br>  <span>console</span>.<span style="color:#4f6f91">log</span>(x);<br></code></pre></section></section>"
+<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 未完成</li></ul>
+<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f">  <span style="color:#a04b57">const</span> x = <span style="color:#ab7245">1</span>;<br>  <span>console</span>.<span style="color:#4f6f91">log</span>(x);</code></pre></section></section>"
 `;
 
 exports[`共享渲染 > 公众号任务列表、代码、三套主题输出稳定 > sspai 1`] = `
 "<section style="font-family:-apple-system,BlinkMacSystemFont,&#x22;PingFang SC&#x22;,sans-serif;font-size:15px;line-height:1.9;color:#343a34;word-wrap:break-word"><h2 style="font-size:19px;color:#ac493a;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">标题</h2>
-<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">☑  完成</li><li style="margin:7px 0">☐  未完成</li></ul>
-<section style="overflow-x:auto;max-width:100%"><pre style="font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.7;white-space:pre;word-wrap:normal;padding:18px;background:#f5f6f5;color:#39443f"><code style="font-family:Menlo,Consolas,monospace;font-size:13px">  <span style="color:#a04b57">const</span> x = <span style="color:#ab7245">1</span>;<br>  <span>console</span>.<span style="color:#4f6f91">log</span>(x);<br></code></pre></section></section>"
+<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 未完成</li></ul>
+<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f">  <span style="color:#a04b57">const</span> x = <span style="color:#ab7245">1</span>;<br>  <span>console</span>.<span style="color:#4f6f91">log</span>(x);</code></pre></section></section>"
 `;
 
 exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿主中不依赖 DOM 或 Node 环境 > wechat-mac 1`] = `
@@ -24,17 +24,17 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 <p style="margin:16px 0"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:20px auto"></p>
 <h2 style="font-size:19px;color:#51667d;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">列表与任务</h2>
 <ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">一级列表
-<section style="margin-left:1em"><section>• 二级列表
-<section style="margin-left:1em"><section>• 三级列表</section></section>
+<section style="margin-left:1em"><section style="margin:4px 0">• 二级列表
+<section style="margin-left:1em"><section style="margin:4px 0">• 三级列表</section></section>
 </section></section>
-</li><li style="margin:7px 0">☑  已完成</li><li style="margin:7px 0">☐  待完成</li></ul>
+</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 已完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 待完成</li></ul>
 <ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">第一项</li><li style="margin:7px 0">第二项</li></ol>
 <h3 style="font-size:17px;color:#51667d;margin:23px 0 14px">代码</h3>
-<section style="overflow-x:auto;max-width:100%"><pre style="font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.7;white-space:pre;word-wrap:normal;padding:18px;background:#282d35;color:#e2e5ea;border-radius:8px"><code style="font-family:Menlo,Consolas,monospace;font-size:13px"><span style="color:#a04b57">function</span> <span style="color:#4f6f91">greet</span>(<span><span style="color:#58775b">name</span>: <span style="color:#4f6f91">string</span></span>) {<br>  <span style="color:#a04b57">return</span> <span style="color:#58775b">\`你好，<span>\${name}</span>\`</span>;<br>}<br></code></pre></section>
+<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#282d35;color:#e2e5ea;border-radius:8px;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#e2e5ea"><span style="color:#e892a0">function</span> <span style="color:#8dbbea">greet</span>(<span><span style="color:#a8cf9e">name</span>: <span style="color:#8dbbea">string</span></span>) {<br>  <span style="color:#e892a0">return</span> <span style="color:#a8cf9e">\`你好，<span>\${name}</span>\`</span>;<br>}</code></pre></section>
 <h4 style="font-size:16px;margin:20px 0 12px">深层标题</h4>
 <p style="margin:16px 0">知乎将此标题转换为加粗段落。</p>
-<blockquote style="margin:22px 0;padding:8px 16px;border-left:3px solid #51667d;background:#f7f7f4;color:#70766a">
-<p style="margin:16px 0">引用中保留文字与链接。</p>
+<blockquote style="margin:22px 0;padding:12px 16px;border-left:3px solid #51667d;background:#f7f7f4;color:#70766a">
+<p style="margin:10px 0;margin-top:0;margin-bottom:0">引用中保留文字与链接。</p>
 </blockquote>
 
 
@@ -53,7 +53,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 
 
 
-<section style="overflow-x:auto;max-width:100%"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:18px 0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
+<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
 <p style="margin:16px 0">正文带有脚注<sup style="font-size:11px;color:#51667d">[1]</sup>，也支持 <del>删除线</del>。</p>
 <hr style="border:0;border-top:1px solid #dfdfd8;margin:28px 0">
 <section><ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0"><a href="https://example.com/reading" style="color:#51667d;text-decoration:underline">继续阅读</a></li></ul></section>
@@ -61,7 +61,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 <img src="jz-img:1" alt="原始 HTML 图片" style="max-width:100%;height:auto;display:block;margin:20px auto">
 <section><h2 style="font-size:19px;color:#51667d;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">注释</h2>
 <ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">
-<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#51667d;text-decoration:underline">项目仓库</a> </span>
+<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#51667d;text-decoration:underline">项目仓库</a></span>
 </li></ol>
 </section></section>"
 `;
@@ -72,17 +72,17 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 <p style="margin:16px 0"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:20px auto"></p>
 <h2 style="font-size:19px;color:#526d64;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">列表与任务</h2>
 <ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">一级列表
-<section style="margin-left:1em"><section>• 二级列表
-<section style="margin-left:1em"><section>• 三级列表</section></section>
+<section style="margin-left:1em"><section style="margin:4px 0">• 二级列表
+<section style="margin-left:1em"><section style="margin:4px 0">• 三级列表</section></section>
 </section></section>
-</li><li style="margin:7px 0">☑  已完成</li><li style="margin:7px 0">☐  待完成</li></ul>
+</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 已完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 待完成</li></ul>
 <ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">第一项</li><li style="margin:7px 0">第二项</li></ol>
 <h3 style="font-size:17px;color:#526d64;margin:23px 0 14px">代码</h3>
-<section style="overflow-x:auto;max-width:100%"><pre style="font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.7;white-space:pre;word-wrap:normal;padding:18px;background:#f5f6f5;color:#39443f"><code style="font-family:Menlo,Consolas,monospace;font-size:13px"><span style="color:#a04b57">function</span> <span style="color:#4f6f91">greet</span>(<span><span style="color:#58775b">name</span>: <span style="color:#4f6f91">string</span></span>) {<br>  <span style="color:#a04b57">return</span> <span style="color:#58775b">\`你好，<span>\${name}</span>\`</span>;<br>}<br></code></pre></section>
+<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f"><span style="color:#a04b57">function</span> <span style="color:#4f6f91">greet</span>(<span><span style="color:#58775b">name</span>: <span style="color:#4f6f91">string</span></span>) {<br>  <span style="color:#a04b57">return</span> <span style="color:#58775b">\`你好，<span>\${name}</span>\`</span>;<br>}</code></pre></section>
 <h4 style="font-size:16px;margin:20px 0 12px">深层标题</h4>
 <p style="margin:16px 0">知乎将此标题转换为加粗段落。</p>
-<blockquote style="margin:22px 0;padding:8px 16px;border-left:3px solid #526d64;background:#f7f7f4;color:#70766a">
-<p style="margin:16px 0">引用中保留文字与链接。</p>
+<blockquote style="margin:22px 0;padding:12px 16px;border-left:3px solid #526d64;background:#f7f7f4;color:#70766a">
+<p style="margin:10px 0;margin-top:0;margin-bottom:0">引用中保留文字与链接。</p>
 </blockquote>
 
 
@@ -101,7 +101,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 
 
 
-<section style="overflow-x:auto;max-width:100%"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:18px 0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
+<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
 <p style="margin:16px 0">正文带有脚注<sup style="font-size:11px;color:#526d64">[1]</sup>，也支持 <del>删除线</del>。</p>
 <hr style="border:0;border-top:1px solid #dfdfd8;margin:28px 0">
 <section><ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0"><a href="https://example.com/reading" style="color:#526d64;text-decoration:underline">继续阅读</a></li></ul></section>
@@ -109,7 +109,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 <img src="jz-img:1" alt="原始 HTML 图片" style="max-width:100%;height:auto;display:block;margin:20px auto">
 <section><h2 style="font-size:19px;color:#526d64;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">注释</h2>
 <ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">
-<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#526d64;text-decoration:underline">项目仓库</a> </span>
+<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#526d64;text-decoration:underline">项目仓库</a></span>
 </li></ol>
 </section></section>"
 `;
@@ -120,17 +120,17 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 <p style="margin:16px 0"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:20px auto"></p>
 <h2 style="font-size:19px;color:#ac493a;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">列表与任务</h2>
 <ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">一级列表
-<section style="margin-left:1em"><section>• 二级列表
-<section style="margin-left:1em"><section>• 三级列表</section></section>
+<section style="margin-left:1em"><section style="margin:4px 0">• 二级列表
+<section style="margin-left:1em"><section style="margin:4px 0">• 三级列表</section></section>
 </section></section>
-</li><li style="margin:7px 0">☑  已完成</li><li style="margin:7px 0">☐  待完成</li></ul>
+</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 已完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 待完成</li></ul>
 <ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">第一项</li><li style="margin:7px 0">第二项</li></ol>
 <h3 style="font-size:17px;color:#ac493a;margin:23px 0 14px">代码</h3>
-<section style="overflow-x:auto;max-width:100%"><pre style="font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.7;white-space:pre;word-wrap:normal;padding:18px;background:#f5f6f5;color:#39443f"><code style="font-family:Menlo,Consolas,monospace;font-size:13px"><span style="color:#a04b57">function</span> <span style="color:#4f6f91">greet</span>(<span><span style="color:#58775b">name</span>: <span style="color:#4f6f91">string</span></span>) {<br>  <span style="color:#a04b57">return</span> <span style="color:#58775b">\`你好，<span>\${name}</span>\`</span>;<br>}<br></code></pre></section>
+<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f"><span style="color:#a04b57">function</span> <span style="color:#4f6f91">greet</span>(<span><span style="color:#58775b">name</span>: <span style="color:#4f6f91">string</span></span>) {<br>  <span style="color:#a04b57">return</span> <span style="color:#58775b">\`你好，<span>\${name}</span>\`</span>;<br>}</code></pre></section>
 <h4 style="font-size:16px;margin:20px 0 12px">深层标题</h4>
 <p style="margin:16px 0">知乎将此标题转换为加粗段落。</p>
-<blockquote style="margin:22px 0;padding:8px 16px;border-left:3px solid #ac493a;background:#f7f7f4;color:#70766a">
-<p style="margin:16px 0">引用中保留文字与链接。</p>
+<blockquote style="margin:22px 0;padding:12px 16px;border-left:3px solid #ac493a;background:#f7f7f4;color:#70766a">
+<p style="margin:10px 0;margin-top:0;margin-bottom:0">引用中保留文字与链接。</p>
 </blockquote>
 
 
@@ -149,7 +149,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 
 
 
-<section style="overflow-x:auto;max-width:100%"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:18px 0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
+<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
 <p style="margin:16px 0">正文带有脚注<sup style="font-size:11px;color:#ac493a">[1]</sup>，也支持 <del>删除线</del>。</p>
 <hr style="border:0;border-top:1px solid #dfdfd8;margin:28px 0">
 <section><ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0"><a href="https://example.com/reading" style="color:#ac493a;text-decoration:underline">继续阅读</a></li></ul></section>
@@ -157,7 +157,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 <img src="jz-img:1" alt="原始 HTML 图片" style="max-width:100%;height:auto;display:block;margin:20px auto">
 <section><h2 style="font-size:19px;color:#ac493a;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">注释</h2>
 <ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">
-<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#ac493a;text-decoration:underline">项目仓库</a> </span>
+<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#ac493a;text-decoration:underline">项目仓库</a></span>
 </li></ol>
 </section></section>"
 `;
@@ -166,7 +166,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 "
 <p>一篇覆盖常用 Markdown 的验收样文。<strong>重点</strong>，标点与强调应在一起。</p><p><img src="jz-img:0" alt="本地图片"></p><h2>列表与任务</h2><ul><li>一级列表
 <ul><li>二级列表
-<ul><li>三级列表</li></ul></li></ul></li><li>☑  已完成</li><li>☐  待完成</li></ul><ol><li>第一项</li><li>第二项</li></ol><h3>代码</h3><pre lang="typescript">function greet(name: string) {
+<ul><li>三级列表</li></ul></li></ul></li><li>☑ 已完成</li><li>☐ 待完成</li></ul><ol><li>第一项</li><li>第二项</li></ol><h3>代码</h3><pre lang="typescript">function greet(name: string) {
   return \`你好，\${name}\`;
 }
 </pre><p><strong>深层标题</strong></p><p>知乎将此标题转换为加粗段落。</p><blockquote><p>引用中保留文字与链接。</p></blockquote><table data-draft-node="block" data-draft-type="table" data-size="normal"><tbody><tr><th>平台</th><th>能力</th></tr><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table><p>正文带有脚注<sup data-draft-node="inline" data-draft-type="reference" data-numero="1" data-text="参考 项目仓库" data-url="https://github.com/AFreeCoder/jinzhang-md-publisher">[1]</sup>，也支持 <del>删除线</del>。</p><hr><ul><li><a href="https://example.com/reading">继续阅读</a></li></ul><p>允许的内联颜色。</p><img src="jz-img:1" alt="原始 HTML 图片">
@@ -177,7 +177,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 "
 <p>一篇覆盖常用 Markdown 的验收样文。<strong>重点</strong>，标点与强调应在一起。</p><p><img src="jz-img:0" alt="本地图片"></p><h2>列表与任务</h2><ul><li>一级列表
 <ul><li>二级列表
-<ul><li>三级列表</li></ul></li></ul></li><li>☑  已完成</li><li>☐  待完成</li></ul><ol><li>第一项</li><li>第二项</li></ol><h3>代码</h3><pre lang="typescript">function greet(name: string) {
+<ul><li>三级列表</li></ul></li></ul></li><li>☑ 已完成</li><li>☐ 待完成</li></ul><ol><li>第一项</li><li>第二项</li></ol><h3>代码</h3><pre lang="typescript">function greet(name: string) {
   return \`你好，\${name}\`;
 }
 </pre><p><strong>深层标题</strong></p><p>知乎将此标题转换为加粗段落。</p><blockquote><p>引用中保留文字与链接。</p></blockquote><table data-draft-node="block" data-draft-type="table" data-size="normal"><tbody><tr><th>平台</th><th>能力</th></tr><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table><p>正文带有脚注<sup data-draft-node="inline" data-draft-type="reference" data-numero="1" data-text="参考 项目仓库" data-url="https://github.com/AFreeCoder/jinzhang-md-publisher">[1]</sup>，也支持 <del>删除线</del>。</p><hr><ul><li><a href="https://example.com/reading">继续阅读</a></li></ul><p>允许的内联颜色。</p><img src="jz-img:1" alt="原始 HTML 图片">
@@ -188,7 +188,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 "
 <p>一篇覆盖常用 Markdown 的验收样文。<strong>重点</strong>，标点与强调应在一起。</p><p><img src="jz-img:0" alt="本地图片"></p><h2>列表与任务</h2><ul><li>一级列表
 <ul><li>二级列表
-<ul><li>三级列表</li></ul></li></ul></li><li>☑  已完成</li><li>☐  待完成</li></ul><ol><li>第一项</li><li>第二项</li></ol><h3>代码</h3><pre lang="typescript">function greet(name: string) {
+<ul><li>三级列表</li></ul></li></ul></li><li>☑ 已完成</li><li>☐ 待完成</li></ul><ol><li>第一项</li><li>第二项</li></ol><h3>代码</h3><pre lang="typescript">function greet(name: string) {
   return \`你好，\${name}\`;
 }
 </pre><p><strong>深层标题</strong></p><p>知乎将此标题转换为加粗段落。</p><blockquote><p>引用中保留文字与链接。</p></blockquote><table data-draft-node="block" data-draft-type="table" data-size="normal"><tbody><tr><th>平台</th><th>能力</th></tr><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table><p>正文带有脚注<sup data-draft-node="inline" data-draft-type="reference" data-numero="1" data-text="参考 项目仓库" data-url="https://github.com/AFreeCoder/jinzhang-md-publisher">[1]</sup>，也支持 <del>删除线</del>。</p><hr><ul><li><a href="https://example.com/reading">继续阅读</a></li></ul><p>允许的内联颜色。</p><img src="jz-img:1" alt="原始 HTML 图片">

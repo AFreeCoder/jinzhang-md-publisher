@@ -4,6 +4,7 @@ import { connectPreview } from '../../lib/preview-sync';
 import { moveRange, replaceEditorText, dropOffset, type EditRange } from '../../lib/editor';
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -35,15 +36,36 @@ import {
 } from '../../lib/clipboard';
 import {
   freshDocument,
+  initialDocument,
   restoreDocument,
   STORAGE_KEY,
   templates,
   sampleMarkdown,
+  sampleTitle,
   normalizeCollectionLink,
   type DocumentState,
   type FixedContent,
 } from '../../lib/document';
 const titleFor = (p: string) => (p === 'wechat' ? '公众号' : '知乎');
+// 分段控件的滑块：按钮宽度不等，按选中按钮的实测位置与宽度摆放，尺寸变化时重算。
+function usePill(active: number) {
+  const track = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const node = track.current;
+    if (!node) return;
+    const place = () => {
+      const target = node.children[active] as HTMLElement | undefined;
+      if (!target) return;
+      node.style.setProperty('--pill-x', `${target.offsetLeft}px`);
+      node.style.setProperty('--pill-w', `${target.offsetWidth}px`);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [active]);
+  return track;
+}
 type Modal = 'clear' | 'sample' | 'new' | 'restore' | null;
 export default function Workspace() {
   const [doc, setDoc] = useState<DocumentState>(freshDocument);
@@ -65,6 +87,9 @@ export default function Workspace() {
   const [uploadFailed, setUploadFailed] = useState<string[]>([]);
   const uploadGeneration = useRef(0);
   const [modal, setModal] = useState<Modal>(null);
+  // 关闭弹窗时保留最后一次的内容，退出过渡期间不至于塌成空框。
+  const [shownModal, setShownModal] = useState<Modal>(null);
+  if (modal && modal !== shownModal) setShownModal(modal);
   const [settings, setSettings] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -85,6 +110,10 @@ export default function Workspace() {
   const insertion = useRef<[number, number]>([0, 0]);
   const pendingInsertions = useRef(new Set<EditRange>());
   const frame = useRef<HTMLIFrameElement>(null);
+  const workspace = useRef<HTMLDivElement>(null);
+  const paper = useRef<HTMLDivElement>(null);
+  const modeFrom = useRef<{ columns: string; width: number } | undefined>(undefined);
+  const modeMotion = useRef<Animation[]>([]);
   const disconnectPreview = useRef<() => void>(() => {});
   const dialog = useRef<HTMLDialogElement>(null);
   const priorFocus = useRef<HTMLElement | null>(null);
@@ -102,6 +131,9 @@ export default function Workspace() {
     | undefined
   >(undefined);
   const fixed = doc.fixed[doc.platform];
+  const platformPill = usePill(doc.platform === 'wechat' ? 0 : 1);
+  const modePill = usePill(mobilePreview ? 1 : 0);
+  const panePill = usePill(mobilePane === 'editor' ? 0 : 1);
   // 复制点击落在防抖或排版进行中时，等待当前版本的结果，而不是复制旧正文或禁用按钮。
   function awaitRender(token: number) {
     if (renderWaiter.current?.version === token) return renderWaiter.current;
@@ -140,7 +172,7 @@ export default function Workspace() {
   }
   useEffect(() => {
     try {
-      const restored = restoreDocument(localStorage.getItem(STORAGE_KEY));
+      const restored = restoreDocument(localStorage.getItem(STORAGE_KEY), location.origin);
       docRef.current = restored;
       setDoc(restored);
       setStorageStatus('已恢复本浏览器内容');
@@ -246,6 +278,33 @@ export default function Workspace() {
     };
   }, [doc, ready]);
   useEffect(() => () => urls.current.forEach(URL.revokeObjectURL), []);
+  function switchPreviewMode(next: boolean) {
+    if (next === mobilePreview) return;
+    // 记下切换前的列宽与画布宽度（动画进行中取到的是当前插值），布局更新后从这里过渡。
+    if (workspace.current && paper.current)
+      modeFrom.current = {
+        columns: getComputedStyle(workspace.current).gridTemplateColumns,
+        width: paper.current.getBoundingClientRect().width,
+      };
+    setMobilePreview(next);
+  }
+  useLayoutEffect(() => {
+    const from = modeFrom.current;
+    modeFrom.current = undefined;
+    modeMotion.current.forEach((motion) => motion.cancel());
+    modeMotion.current = [];
+    const grid = workspace.current;
+    const sheet = paper.current;
+    if (!from || !grid || !sheet || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // 栏宽在两种模式下分别是 fr 与 px，CSS 无法直接插值；用实测像素值过渡，结束后交还给样式表。
+    const columns = getComputedStyle(grid).gridTemplateColumns;
+    const width = sheet.getBoundingClientRect().width;
+    const timing = { duration: 340, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' };
+    modeMotion.current = [
+      grid.animate({ gridTemplateColumns: [from.columns, columns] }, timing),
+      sheet.animate({ width: [`${from.width}px`, `${width}px`] }, timing),
+    ];
+  }, [mobilePreview]);
   useEffect(() => () => disconnectPreview.current(), []);
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -374,7 +433,7 @@ export default function Workspace() {
     }
   }
   function loadExample() {
-    replaceArticle(sampleMarkdown, '把写作还给写作');
+    replaceArticle(sampleMarkdown(location.origin), sampleTitle);
   }
   function replaceArticle(markdown: string, title: string) {
     if (docRef.current.markdown || docRef.current.title) {
@@ -543,7 +602,8 @@ export default function Workspace() {
       skipSave.current = true;
       preparedCache.current = undefined;
       currentJob.current = undefined;
-      update(freshDocument());
+      // 清除后回到首次打开的状态，与刷新后看到的内容一致。
+      update(initialDocument(location.origin));
       setNotice('已清除本浏览器的原文、图片与排版设置。');
       setModal(null);
     } catch {
@@ -586,7 +646,7 @@ export default function Workspace() {
         </Link>
         <div className="toolbar">
           <div className="toolbar-group">
-            <div className="segment">
+            <div className="segment" ref={platformPill}>
               {(['wechat', 'zhihu'] as const).map((p) => (
                 <button
                   key={p}
@@ -676,7 +736,7 @@ export default function Workspace() {
           </button>
         </div>
       )}
-      <div className="mobile-pane-tabs" aria-label="工作区视图">
+      <div className="mobile-pane-tabs" aria-label="工作区视图" ref={panePill}>
         <button aria-pressed={mobilePane === 'editor'} onClick={() => setMobilePane('editor')}>
           编辑
         </button>
@@ -684,7 +744,10 @@ export default function Workspace() {
           预览
         </button>
       </div>
-      <div className={`workspace pane-${mobilePane}${mobilePreview ? ' phone-preview' : ''}`}>
+      <div
+        ref={workspace}
+        className={`workspace pane-${mobilePane}${mobilePreview ? ' phone-preview' : ''}`}
+      >
         <section className="input-panel">
           <div className="panel-label">
             <span>Markdown 原文</span>
@@ -771,18 +834,21 @@ export default function Workspace() {
         <section className="preview-panel">
           <div className="panel-label">
             <span>成品预览</span>
-            <div className="preview-modes" aria-label="预览宽度">
-              <button aria-pressed={!mobilePreview} onClick={() => setMobilePreview(false)}>
+            <div className="preview-modes" aria-label="预览宽度" ref={modePill}>
+              <button aria-pressed={!mobilePreview} onClick={() => switchPreviewMode(false)}>
                 自适应
               </button>
-              <button aria-pressed={mobilePreview} onClick={() => setMobilePreview(true)}>
+              <button aria-pressed={mobilePreview} onClick={() => switchPreviewMode(true)}>
                 手机
               </button>
             </div>
           </div>
           <div className="preview-scroll">
             {doc.markdown ? (
-              <div className={`preview-paper ${mobilePreview ? 'mobile-preview' : 'wide-preview'}`}>
+              <div
+                ref={paper}
+                className={`preview-paper ${mobilePreview ? 'mobile-preview' : 'wide-preview'}`}
+              >
                 <iframe
                   ref={frame}
                   title="文章成品预览"
@@ -964,6 +1030,9 @@ export default function Workspace() {
       </div>
       <dialog
         ref={dialog}
+        // 退出过渡期间内容仍在，但不应再被点到或读到。
+        inert={!modal}
+        aria-hidden={!modal || undefined}
         onCancel={() => setModal(null)}
         className="modal"
         onClick={(e) => {
@@ -979,7 +1048,7 @@ export default function Workspace() {
         }}
       >
         <div className="eyebrow">JINZHANG</div>
-        {modal === 'clear' && (
+        {shownModal === 'clear' && (
           <>
             <h2>清除本浏览器的数据？</h2>
             <p>删除此浏览器保存的原文、图片与排版设置，不影响平台里的内容。此操作不能撤销。</p>
@@ -991,22 +1060,22 @@ export default function Workspace() {
             </div>
           </>
         )}
-        {(modal === 'new' || modal === 'restore') && (
+        {(shownModal === 'new' || shownModal === 'restore') && (
           <>
-            <h2>{modal === 'new' ? '新建一篇文章？' : '恢复上一稿？'}</h2>
+            <h2>{shownModal === 'new' ? '新建一篇文章？' : '恢复上一稿？'}</h2>
             <p>当前文章会保留为上一稿，排版设置不变。</p>
             <div className="modal-actions">
               <button onClick={() => setModal(null)}>取消</button>
               <button
                 className="primary"
-                onClick={() => (modal === 'new' ? replaceArticle('', '') : restoreArticle())}
+                onClick={() => (shownModal === 'new' ? replaceArticle('', '') : restoreArticle())}
               >
-                {modal === 'new' ? '新建文章' : '恢复上一稿'}
+                {shownModal === 'new' ? '新建文章' : '恢复上一稿'}
               </button>
             </div>
           </>
         )}
-        {modal === 'sample' && (
+        {shownModal === 'sample' && (
           <>
             <h2>用示例替换当前原文？</h2>
             <p>当前文章会保留为上一稿，平台与排版设置不变。</p>
