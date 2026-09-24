@@ -1,5 +1,13 @@
 import { it, expect } from 'vitest';
-import { freshDocument, initialDocument, restoreDocument, templates } from './document';
+import {
+  freshDocument,
+  initialDocument,
+  restoreDocument,
+  sampleMarkdown,
+  sampleTitle,
+  templates,
+} from './document';
+import { legacySamples } from './legacy-samples';
 import { prepare, render } from '@jinzhang/core';
 it('兼容旧封面数据，但不再在网页文档中保留', () => {
   expect(
@@ -47,6 +55,7 @@ it('没有保存过内容时预置示例稿，示例覆盖常见语法且不触�
   for (const tag of [
     'h2',
     'h3',
+    'h4',
     'strong',
     'em',
     'del',
@@ -64,4 +73,27 @@ it('没有保存过内容时预置示例稿，示例覆盖常见语法且不触�
     expect(r.html).toContain(`<${tag}`);
   expect(r.html).toContain('☑');
   expect(r.html).not.toContain('<h1');
+});
+it('浏览器里原样未改的旧版示例升级为当前示例，设置保留；改过的稿子不动', () => {
+  const origin = 'https://jinzhang.ink';
+  const saved = (markdown: string, title = sampleTitle) =>
+    JSON.stringify({ ...freshDocument(), markdown, title, theme: 'mac', platform: 'zhihu' });
+  const legacy = legacySamples(origin);
+  expect(legacy).toHaveLength(2);
+  for (const markdown of legacy) {
+    expect(markdown).not.toBe(sampleMarkdown(origin));
+    const doc = restoreDocument(saved(markdown), origin);
+    expect(doc.markdown).toBe(sampleMarkdown(origin));
+    expect(doc.title).toBe(sampleTitle);
+    expect(doc.theme).toBe('mac');
+    expect(doc.platform).toBe('zhihu');
+    expect(restoreDocument(saved(markdown + '\n我的补充'), origin).markdown).toBe(
+      markdown + '\n我的补充',
+    );
+    expect(restoreDocument(saved(markdown, '我自己的标题'), origin).markdown).toBe(markdown);
+  }
+  // 当前示例原样保存时保持不变。
+  expect(restoreDocument(saved(sampleMarkdown(origin)), origin).markdown).toBe(
+    sampleMarkdown(origin),
+  );
 });
