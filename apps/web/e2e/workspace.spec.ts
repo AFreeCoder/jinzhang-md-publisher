@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { legacySamples } from '../lib/legacy-samples';
 const fixture = path.resolve('fixtures/sample.png');
 test('手机画布与预览栏一起收窄，正文不过度留白且小屏不横向溢出', async ({ page }) => {
   await page.goto('/format');
@@ -49,6 +50,41 @@ test('自适应与手机切换连贯过渡且可中途折返，减少动态效�
   await page.getByRole('button', { name: '手机', exact: true }).click();
   expect(await running()).toBe(0);
   await expect(page.locator('.preview-panel')).toHaveCSS('width', '444px');
+});
+test('老用户浏览器里原样未改的旧示例升级为新示例，排版设置保留', async ({ page }) => {
+  await page.goto('/');
+  const origin = new URL(page.url()).origin;
+  for (const markdown of legacySamples(origin)) {
+    await page.evaluate((markdown) => {
+      const fixed = {
+        header: false,
+        footer: false,
+        headerStyle: '简约署名',
+        footerStyle: '一句寄语',
+        author: '',
+        slogan: '',
+        closing: '',
+        collection: '',
+      };
+      localStorage.setItem(
+        'jinzhang.document.v1',
+        JSON.stringify({
+          markdown,
+          title: '把写作还给写作',
+          theme: 'mac',
+          platform: 'wechat',
+          fixed: { wechat: fixed, zhihu: fixed },
+        }),
+      );
+    }, markdown);
+    await page.goto('/format');
+    await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue(/## 01 标题/);
+    await expect(page.getByRole('button', { name: 'Mac', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.goto('/');
+  }
 });
 test('新建保留设置与上一稿，刷新后恢复，取消不丢内容', async ({ page }) => {
   await page.goto('/format');
@@ -413,7 +449,7 @@ test('两平台预览、移动布局和清除只作用于当前站点数据', as
   await page.getByRole('link', { name: '打开在线排版' }).click();
   // 首次打开即预置覆盖常见语法的示例稿，成品立刻可见。
   const article = page.frameLocator('iframe').locator('article');
-  await expect(article.getByRole('heading', { name: '01 文字与强调' })).toBeVisible();
+  await expect(article.getByRole('heading', { name: '01 标题' })).toBeVisible();
   for (const selector of [
     'strong',
     'em',
@@ -435,7 +471,7 @@ test('两平台预览、移动布局和清除只作用于当前站点数据', as
     await article.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth),
   ).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Mac', exact: true }).click();
-  await expect(page.frameLocator('iframe').locator('pre')).toHaveCSS(
+  await expect(page.frameLocator('iframe').locator('pre').first()).toHaveCSS(
     'background-color',
     'rgb(40, 45, 53)',
   );
