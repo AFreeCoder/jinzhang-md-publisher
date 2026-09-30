@@ -1,6 +1,6 @@
 # 锦章一期设计：总体架构与 core
 
-状态：已评审，2026-09-10 定稿（issue #4 快照 1 至 4）；渲染路径已随网页版实现并于 2026-09-18 上线，2026-09-30 按已实现的代码（main `4d312c0`）同步，未实现部分仍为设计，见第 1 节末的实现状态。2026-09-08 起草。上游：[需求文档](../../requirements/product-v1/requirements.md)；过程记录在 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)，同类项目源码调研结论摘要见该 issue。三个壳各有一份设计：[网页版](web.md)、[skill](skill.md)；Obsidian 插件的设计在 [issue #12](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/12) 评审中，定稿后沉淀为 `obsidian-plugin.md`。本文回答「系统怎么做到」：架构、技术选型、渲染管线、数据模型、投递适配器、配置与状态、错误模型，以及与需求的映射。
+状态：已评审，2026-09-10 定稿（issue #4 快照 1 至 4）；渲染路径已随网页版实现并于 2026-09-18 上线，2026-09-30 按已实现的代码（main `4d312c0`）同步，未实现部分仍为设计，见第 1 节末的实现状态。2026-09-08 起草。上游：[需求文档](../../requirements/product-v1/requirements.md)；过程记录在 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)，同类项目源码调研结论摘要见该 issue。三个壳各有一份设计：[网页版](web.md)、[skill](skill.md)、[Obsidian 插件](obsidian-plugin.md)。本文回答「系统怎么做到」：架构、技术选型、渲染管线、数据模型、投递适配器、配置与状态、错误模型，以及与需求的映射。
 
 ## 1. 结论
 
@@ -16,7 +16,7 @@
 | 代码高亮 | lowlight（highlight.js 的 hast 版），配色随主题内联 | 直接产出 hast |
 | 公众号方言规则 | 自研，规则并集来自 my-toolbox `wechatCompat`、wenyan `wechatPostRender`、doocs 复制前处理 | 都是踩坑结晶，许可证允许 |
 | 知乎方言规则 | 自研，标签与属性照 Zhihu on Obsidian、zhihu-cli、Wechatsync 生成端 | 没有现成 Node 实现 |
-| 图片处理 | core 定义 `ImageCodec` 接口；Node 用 sharp，浏览器与 Obsidian 用 Canvas | sharp 是原生模块，进不了插件与网页 |
+| 图片处理 | core 定义 `ImageCodec` 接口；命令行用 sharp，放在命令行包里；浏览器与 Obsidian 用 Canvas | sharp 是原生模块，进不了插件与网页 |
 | 公众号投递 | 自研，蓝本是 my-toolbox `wechatDraftPublisher`（幂等、40007 恢复、结果不确定处理、回读校验），补稳定版 token 落盘缓存与代理 | 同类项目在幂等与错误处理上都更弱 |
 | 知乎投递 | 自研，接口序列照 Zhihu on Obsidian（只建草稿与更新，不发布） | 一年可用的网页端接口路线 |
 | 配置与状态 | 用户目录 `~/.config/jinzhang/`，JSON 文件，凭证 0600 | skill 与插件共用一份；复制目录即迁移 |
@@ -32,8 +32,8 @@
 | 预览壳 `./preview` | 已实现 | `packages/core/src/preview.ts` |
 | 浏览器宿主 `./browser`：IndexedDB 资源解析、Canvas 编解码 | 已实现 | `packages/core/src/browser.ts` |
 | 网页版 | 已实现，2026-09-18 上线 | `apps/web`，见 [web.md](web.md) |
-| `:::card` 名片、投递适配器 `./publish`、Node 宿主 `./node`、配置与状态、错误模型、体检（第 6、8 至 11 节） | 未实现，本文为设计 | 无 |
-| 命令行、skill、Obsidian 插件 | 未实现 | 无 |
+| `:::card` 名片、投递适配器 `./publish`、共享文件读写 `./node`、配置与状态、错误模型、体检（第 6、8 至 11 节），以及 `./browser` 里网页与插件共用的 data URL 归位（第 5 节） | 未实现，本文为设计 | 无 |
+| 命令行、skill、Obsidian 插件 | 未实现；插件是本地形态的第一个实现，设计见 [obsidian-plugin.md](obsidian-plugin.md) | 无 |
 
 其余各节按已实现的代码写实际接口；未实现的部分保持设计，在对应小节标出。
 
@@ -56,7 +56,7 @@ jinzhang-md-publisher/
 └── docs/                # 常青文档与阶段结论
 ```
 
-- core 用 tsup 产出 ESM 与 CJS 两种格式，附类型声明。已有入口：`.`（渲染，纯函数）、`./preview`（预览壳：把 `RenderResult` 包成公众号或知乎的预览页面 HTML，三个壳共用）、`./browser`（Canvas 编解码、IndexedDB 资源解析等浏览器宿主实现）；实现投递时再加 `./publish`（投递适配器）与 `./node`（sharp 编解码、文件系统、代理等 Node 专用宿主实现）
+- core 用 tsup 产出 ESM 与 CJS 两种格式，附类型声明。已有入口：`.`（渲染，纯函数）、`./preview`（预览壳：把 `RenderResult` 包成公众号或知乎的预览页面 HTML，三个壳共用）、`./browser`（Canvas 编解码、IndexedDB 资源解析等浏览器宿主实现）；实现投递时再加 `./publish`（投递适配器，只经注入的宿主联网与读写，不直接调用 Node API）与 `./node`（配置、凭证、状态、模板与写锁的文件读写，只依赖 Node 内置模块，命令行与插件共用，构建时把 Node 内置模块标为外部）。sharp 编解码与带代理的传输不进 core，由各壳的宿主实现提供：命令行包用 sharp 与 undici，插件用 `CanvasImageCodec`、`requestUrl` 与 Node `https` 代理 agent（第 3 节宿主表）；插件打包不能带原生模块
 - core 构建把依赖全部打进产物（`noExternal`），按浏览器平台与 `worker` 条件解析依赖，选用不依赖 DOM 的实现；包标记为 `private`，不发布到 npm，壳经 pnpm workspace 引用。发布命令行时再决定是否对外发布
 - 主题源文件是 CSS，`pnpm themes` 把它们生成到 `themes/generated.ts` 供运行时读取；`pnpm build` 先跑这一步
 - 测试统一用 Vitest；core 的快照以三套主题的任务列表与代码样例、以及 `fixtures/article.md` 在两平台与三主题下的输出为回归基线；`scripts/check-core-build.mjs` 核对 ESM 与 CJS 两份产物对标准文章的输出一致。这些都在 `pnpm check` 里，CI 每次推送执行
@@ -89,18 +89,19 @@ interface PublishHost {          // 设计，未实现；只有命令行与插�
 
 - 本地形态的解析器直接读出字节，返回 `blob` 类，`assetId` 填文件路径（插件用 `vault.readBinary`，命令行用 `fs`）。原设计里只给路径的 `local` 类没有落地，不再保留
 - 解析与平台无关，`hosted` 只表示「已是公网地址」。能否直通不上传（公众号 `mmbiz.qpic.cn`、知乎 `*.zhimg.com`）由各平台的 `ImageStore` 按地址判断
+- `jz-local://` 是 core 清理时放行的内部协议：网页版用 `jz-local://<assetId>` 指 IndexedDB 里的图片，插件用 `jz-local://vault/…` 与 `jz-local://file/…` 指 vault 内与磁盘上的文件。`file://` 与 Windows 盘符路径会被当成未放行的协议清掉，本地形态要先改写成这种形式
 
 宿主实现一览：
 
 | 接口 | 命令行（未实现） | Obsidian 插件（未实现） | 网页版（已实现） |
 |---|---|---|---|
-| `http` | Node 内置 fetch（undici）；代理用 undici 的 `ProxyAgent`（http、https）与 `fetch-socks`（socks5）显式接入，不依赖 `NODE_USE_ENV_PROXY` 这类运行时开关，让优先级与出口可预测；可带 `Cookie` 等任意头 | 默认 Obsidian `requestUrl`（走主进程，无 CORS 限制，可带任意头；multipart 手工拼装）；配置了公众号代理时公众号请求改走 Node `https` 加代理 agent，因为 `requestUrl` 没有代理参数 | 不实现 `PublishHost`；浏览器 fetch 只在网页自己的 `ImageStore` 里用于签名、直传与远程图片 |
+| `http` | Node 内置 fetch（undici）；代理用 undici 的 `ProxyAgent`（http、https）与 `fetch-socks`（socks5）显式接入，不依赖 `NODE_USE_ENV_PROXY` 这类运行时开关，让优先级与出口可预测；可带 `Cookie` 等任意头 | 默认 Obsidian `requestUrl`（走主进程，无 CORS 限制，可带任意头；multipart 手工拼装）；配置了公众号代理时公众号请求改走 Node `https` 加代理 agent，因为 `requestUrl` 没有代理参数；它也没有超时参数，宿主自包一层超时，创建草稿超时按结果不确定处理 | 不实现 `PublishHost`；浏览器 fetch 只在网页自己的 `ImageStore` 里用于签名、直传与远程图片 |
 | `readFile` | `node:fs` | `vault.readBinary`；vault 外的路径用 `node:fs`（桌面端可用） | 无 |
-| `codec` | sharp | 直接复用 `./browser` 的 `CanvasImageCodec`（Electron 渲染进程有 Canvas 与 `createImageBitmap`） | `./browser` 的 `CanvasImageCodec` |
-| `store` / `secrets` | `~/.config/jinzhang/` | 同一目录，经 `node:fs` | 无；文档与设置存 `localStorage` |
-| `AssetResolver` | 相对源文件目录解析路径 | 先按 Obsidian 的链接解析规则找附件，再退回相对路径 | `./browser` 的 `BrowserAssetResolver`（IndexedDB `jinzhang-assets`） |
+| `codec` | sharp，放在命令行包里 | 直接复用 `./browser` 的 `CanvasImageCodec`（Electron 渲染进程有 Canvas 与 `createImageBitmap`） | `./browser` 的 `CanvasImageCodec` |
+| `store` / `secrets` | `./node` 的文件实现，目录 `~/.config/jinzhang/` | 同一份 `./node` 实现，Node 内置模块由 Obsidian 桌面端提供 | 无；文档与设置存 `localStorage` |
+| `AssetResolver` | 相对源文件目录解析路径 | 按引用形式分支：嵌入图预处理成 `jz-local://vault/…`，`file://` 与盘符路径预处理成 `jz-local://file/…`，其余相对引用交给 `getFirstLinkpathDest`，找不到再按笔记所在目录解析磁盘路径（[obsidian-plugin.md](obsidian-plugin.md) 第 3、4 节） | `./browser` 的 `BrowserAssetResolver`（IndexedDB `jinzhang-assets`） |
 
-依赖边界：core 的根入口只导出渲染与预览需要的东西，不重新导出 `./node`、`./publish` 里的实现；网页版只依赖 `.`、`./preview`、`./browser`。`pnpm check` 里的 `scripts/check-browser-boundary.mjs` 把 core 产物与网页的剪贴板模块按浏览器打包，出现 Node 内置模块、sharp、ali-oss 或投递代码即失败，并扫描 Next 客户端产物里没有服务端密钥的变量名；CI 每次推送执行。
+依赖边界：core 的根入口只导出渲染与预览需要的东西，不重新导出 `./node`、`./publish` 里的实现；网页版只依赖 `.`、`./preview`、`./browser`。`pnpm check` 里的 `scripts/check-browser-boundary.mjs` 把 core 产物与网页的剪贴板模块按浏览器打包，出现 Node 内置模块、sharp、ali-oss 或投递代码即失败，并扫描 Next 客户端产物里没有服务端密钥的变量名；CI 每次推送执行。插件的构建产物同样检查不含 sharp 与 ali-oss。
 
 ## 4. 渲染管线
 
@@ -222,7 +223,7 @@ interface ImageStore {
 }
 ```
 
-`NORMALIZE_PROFILES` 只在 core 里定义，一期两档：`platform`（目标平台要求：长边 2000px、单张 1MB）与 `clipboard`（复制路径：长边 1600px、单张 1MB，是产品参数）。带透明通道输出 PNG，否则 JPEG；壳不得另写一套规则。已实现的 `CanvasImageCodec`（`./browser`）：原文件 12MB、4000 万像素以内；SVG 先检查不含脚本、`foreignObject` 与外部资源再栅格化；按尺寸阶梯（1、0.8、0.6、0.4、0.25、0.15）× JPEG 质量阶梯（0.9、0.8、0.65、0.5）逐档压缩直到达标；动图取首帧并在结果里标 `animated`，由调用方给 `GIF_FIRST_FRAME` 警告。sharp 版编解码随命令行实现。
+`NORMALIZE_PROFILES` 只在 core 里定义，一期两档：`platform`（目标平台要求：长边 2000px、单张 1MB）与 `clipboard`（复制路径：长边 1600px、单张 1MB，是产品参数）。带透明通道输出 PNG，否则 JPEG；壳不得另写一套规则。已实现的 `CanvasImageCodec`（`./browser`）：原文件 12MB、4000 万像素以内；SVG 先检查不含脚本、`foreignObject` 与外部资源再栅格化；按尺寸阶梯（1、0.8、0.6、0.4、0.25、0.15）× JPEG 质量阶梯（0.9、0.8、0.65、0.5）逐档压缩直到达标；动图取首帧并在结果里标 `animated`，由调用方给 `GIF_FIRST_FRAME` 警告。sharp 版编解码放在命令行包里，随命令行实现。
 
 规则（读取、跨次去重、封面与状态缓存是投递路径的设计，随投递适配器实现）：
 
@@ -231,7 +232,7 @@ interface ImageStore {
 - 两张映射表：「原始引用 → 资源」决定文章里哪一处引用对应哪个文件，缺图时按引用逐条绑定；「内容 SHA-256 → 字节」只做去重。哈希不能替代引用绑定：用户补上一张 `a.png`，要由用户指明它对应原文的哪个引用（Codex 评审 W4）
 - 去重：同一次推送按内容 SHA-256 去重；跨次推送查 `state.images[hash][platform]`，命中则不再上传
 - 封面：优先单独指定的图；否则正文第一张图，固定开头里的图不算候选；两者都没有时公众号阻止（封面必填），知乎警告后继续。公众号封面走永久素材 `add_material`，`media_id` 按内容哈希缓存在 `state.covers`；同一张图既做封面又在正文里时，正文走 `uploadimg`，封面走永久素材，两次上传、两个结果
-- 网页版的 `ImageStore` 实现是 `CopyImageStore(platform)`：公众号内嵌 data URL，知乎走中转桶并跨会话缓存地址，见 [web.md](web.md) 第 4 节
+- 与平台无关的 data URL 归位（按 `clipboard` 档规范化后内嵌）放在 `./browser`，网页版与插件共用。网页版现有的 `CopyImageStore(platform)` 在插件实现时改为调用它，知乎中转那一支留在网页版，见 [web.md](web.md) 第 4 节
 - 失败信息必须带上原始引用：`IMAGE_DOWNLOAD_FAILED: ./images/a.png`
 
 ## 6. 固定内容
@@ -294,7 +295,7 @@ type PushResult =
 
 - 登录态：`zhihu-session.json` 存 cookie 集合与用户信息。草稿链路的最小集是 `z_c0`、`_xsrf`、`d_c0`；`BEC`、`_zap`、`q_c1`、`captcha_session_v2` 有则带上；`__zse_ck` 只在抓取网页时需要，草稿链路不用，因此不实现它的刷新
 - 请求头：桌面 Chrome 的 `User-Agent`、`x-requested-with: fetch`、`x-xsrftoken`（取自 `_xsrf`）、`origin` 与 `referer` 指向 `https://zhuanlan.zhihu.com`、`Cookie`。三个壳里只有 CLI 与插件发这些请求，宿主的 `http` 必须允许自定义 `Cookie`、`Origin`、`Referer`（Node 的 fetch 可以，Obsidian 的 `requestUrl` 可以，浏览器不行，所以网页版没有知乎推送）
-- 登录方式：CLI 用扫码（`GET /signin` 取 `_xsrf` → `POST /udid` 取 `d_c0` → `POST /api/v3/account/api/login/qrcode` 取二维码 → 终端展示 → 轮询 `scan_info` 直到拿到 `z_c0`）或粘贴 Cookie；插件内嵌登录页扫码后读取会话 Cookie；两处写同一个文件，任一处登录另一处即可用。细节在 [skill.md](skill.md) 与插件设计（[issue #12](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/12)）
+- 登录方式：CLI 用扫码（`GET /signin` 取 `_xsrf` → `POST /udid` 取 `d_c0` → `POST /api/v3/account/api/login/qrcode` 取二维码 → 终端展示 → 轮询 `scan_info` 直到拿到 `z_c0`）或粘贴 Cookie；插件内嵌登录页扫码后读取会话 Cookie；两处写同一个文件，任一处登录另一处即可用。细节在 [skill.md](skill.md) 与 [obsidian-plugin.md](obsidian-plugin.md)
 - 登录态校验：`GET https://www.zhihu.com/api/v4/me` 返回 `id`、`name`、`avatar_url`；401、403 或 `name` 为「知乎用户」视为未登录
 - 图片：对规范化后的字节算 MD5 → `POST https://api.zhihu.com/images`，体 `{ image_hash, source: "article" }` → 响应 `upload_file.state` 为 1 表示知乎已有此图，为 2 则用响应里的 `upload_token`（`access_id`、`access_key`、`access_token`）自行计算阿里云 OSS V1 签名，`PUT https://zhihu-pics-upload.zhimg.com/v2-<md5>`（bucket 名 `zhihu-pics`，头 `x-oss-date`、`x-oss-security-token`、`x-oss-user-agent`、`Content-Type`）→ 轮询 `GET https://api.zhihu.com/images/<image_id>` 直到 `status` 为 `success`，取 `src`、`original_src`、`watermark`、`watermark_src` → 正文 `img` 的 `src` 与 `data-original-src` 写 `<original_src>.<ext>`，宽高由本地解码得到。一期不做动图：GIF 需要分片上传，先取首帧按静态图处理并警告
 - 草稿：首次 `POST https://zhuanlan.zhihu.com/api/articles/drafts`，体 `{ title, delta_time: 0, can_reward: false }`，拿到 `id` 后立刻写入 `state.drafts`；每次推送 `PATCH https://zhuanlan.zhihu.com/api/articles/<id>/draft`，体 `{ title, content, table_of_contents: false, delta_time: 30, can_reward: false }`；有封面时再 `PATCH` 一次 `{ titleImage: <封面上传结果的 original_src>, isTitleImageFullScreen: false, delta_time: 30 }`
@@ -491,3 +492,4 @@ issue #1 快照 9 的八项实测，按它们各自影响的设计决策归位�
 - 2026-09-10 按 issue #6 的 skill 合并结论同步：草稿映射与图片、封面缓存带账号标识；一期不做跨进程投递互斥，只保留状态文件写锁与「一次一个入口」的使用说明；运行时改为 Node 22 以上、24 首测；代理措辞更正
 - 2026-09-10 评审收敛，状态改为已评审，沉淀到仓库
 - 2026-09-30 按已实现的 core（main `4d312c0`）同步：第 1 节加实现状态；第 2 节目录与构建按实际（依赖打进产物、包不发布、主题生成、快照基线）；第 3 节去掉 `RenderHost`（渲染只需 `AssetResolver`，编解码由 `ImageStore` 持有），`ResolvedAsset` 改为实际类型并去掉 `local`，插件编解码复用 `CanvasImageCodec`，依赖边界检查落到脚本；第 4 节接口改为实际签名，补 `sourceLocations`、根入口的其他导出、`htmlChars` 的实际口径与体检预算，更新警告码与各阶段规则（frontmatter 只去映射、按源位置保留原始引用、中文软换行、`style` 允许列表、压缩不再按继承删除声明）；4.1 根节点、表格、脚注、任务列表与主题限制按实现；4.2 补相邻代码块规则与粘贴路径验收；第 5 节 `ImageStore.put` 改为接收引用，补两档规格与 Canvas 编解码细节；第 6 节标出已实现与未实现（`:::card`、`:::recent` 样式、模板文件）；第 7 节主题引擎按实现收窄（不支持 `var()`、`url()`）并补维护规则；第 8 至 11 节标为未实现，体检长度预估补地址预算；第 12 节更新实测进展。来源 issue #4、#5、#9
+- 2026-09-30 按插件设计定稿（issue #12）回写：`./node` 只放命令行与插件共用的文件读写，sharp 编解码与带代理的传输由各壳的宿主实现提供（命令行包用 sharp 与 undici）；与平台无关的 data URL 归位放 `./browser`，网页与插件共用；宿主表的插件一列按插件设计更新（`requestUrl` 自包超时、解析器分支）；补 `jz-local://` 的三种用法；插件设计链接改为 obsidian-plugin.md
