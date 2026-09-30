@@ -45,13 +45,13 @@ describe('私有图片中转', () => {
     expect(() => issueUpload(config, 'text/html', 1)).toThrow();
     expect(() => issueUpload(config, 'image/png', 11 * 1024 * 1024)).toThrow();
   });
-  it('通过 HEAD、魔数、尺寸与解码才发七天读取链接', async () => {
+  it('通过 HEAD、魔数、尺寸与解码才发 24 小时读取链接', async () => {
     const bytes = await png();
     const signed = issueUpload(config, 'image/png', bytes.length);
     const store = storage(bytes);
     const result = await completeUpload(config, store, signed.ticket);
     expect(result.url).toBe('https://images.test/read');
-    expect(store.readUrl).toHaveBeenCalledWith(signed.fields.key, 604800);
+    expect(store.readUrl).toHaveBeenCalledWith(signed.fields.key, 86400);
     expect(store.delete).not.toHaveBeenCalled();
   });
   it('伪造和过期票据不访问 OSS，伪装图片删除后拒绝', async () => {

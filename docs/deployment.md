@@ -6,7 +6,7 @@
 
 宿主 Caddy 自动签发 HTTPS，转发到本机 `127.0.0.1:17622` 的 HAProxy，再到隔离 Docker 网络内 Next.js standalone 服务。Next.js 容器内存上限 1 GiB、CPU 上限 1 核；HAProxy 上限 128 MiB、0.25 核。应用不使用数据库。
 
-`/home/work/online/jinzhang` 保存 Compose、HAProxy 配置和权限为 0600 的 `.env.production`。环境变量参考 `apps/web/.env.example`，生产 Origin 为 `https://jinzhang.ink`。OSS 使用北京地域专用私有桶 `jinzhang-md`，`transit/` 七天生命周期；原有本地开发 CORS 保留并增加生产 Origin。密钥不进入镜像、Git 或日志。
+`/home/work/online/jinzhang` 保存 Compose、HAProxy 配置和权限为 0600 的 `.env.production`。环境变量参考 `apps/web/.env.example`，生产 Origin 为 `https://jinzhang.ink`。OSS 使用北京地域专用私有桶 `jinzhang-md`，`transit/` 一天生命周期；原有本地开发 CORS 保留并增加生产 Origin。密钥不进入镜像、Git 或日志。
 
 两个图片接口共用每 IP 每分钟 60 次、滚动 24 小时 1000 次限额。HAProxy 计数在代理内存中，重启会清零，不用于计费。Caddy 覆盖 `X-Real-IP` 防止外部伪造，网关端口仅本机可达。`complete` 后端最多两条并发连接，排队上限 8、等待最多 5 秒；超过容量返回失败，客户端可重试。Caddy 请求体上限 8 KiB，图片通过浏览器直传 OSS，不经过该请求体。
 
