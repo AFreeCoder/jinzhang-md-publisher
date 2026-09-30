@@ -16,7 +16,7 @@
 
 `.github/workflows/image.yml` 在 main 或初次部署分支推送时构建 Linux 镜像，标签为 `ghcr.io/afreecoder/jinzhang:sha-<完整提交>`；生产按镜像 digest 部署。流水线仅构建，不自动改动服务器。
 
-发布时先备份部署目录（包含私密环境文件，备份保持 0700/0600）与 `/etc/caddy/Caddyfile`，记录旧镜像 digest。核对新镜像标签中的 revision 与候选提交一致，并先验证 HAProxy 配置：
+发布时先备份部署目录（包含私密环境文件，备份保持 0700/0600）与 `/etc/caddy/Caddyfile`，记录旧镜像 digest，并把当前 `.env` 另存为 `.env.previous`。核对新镜像标签中的 revision 与候选提交一致，并先验证 HAProxy 配置：
 
 ```sh
 cd /home/work/online/jinzhang
@@ -34,6 +34,6 @@ Caddy 站点片段见 `deploy/Caddyfile`。首次部署在完整配置备份后�
 
 `/api/health` 返回实际 `APP_REVISION` 和配置齐备状态；它不代替 OSS 连通性验收。公开首页、工作区、静态资源、HTTP 到 HTTPS、www 到主域名跳转都必须正常。需验证真实图片签名 → OSS 上传 → 服务端完整校验 → 签名读取、无效图片拒绝、429 与限额恢复，以及浏览器排版与复制。
 
-通过 `docker compose ps`、`docker compose logs --tail=80`、`docker stats --no-stream` 检查状态。保留上一镜像及配置备份；升级失败时恢复 `.env` 中旧 digest 和对应 Compose/HAProxy 配置再 `docker compose up -d --wait`。首次上线无旧应用可回滚时，移除仅本次新增的 Caddy 站点并验证后 reload，再停止本项目容器；保留其他站点配置。DNS 可恢复原 DNSPod NS，但传播并非即时。
+通过 `docker compose ps`、`docker compose logs --tail=80`、`docker stats --no-stream` 检查状态。保留上一镜像及配置备份；升级失败时用 `.env.previous` 恢复旧 digest 和对应 Compose/HAProxy 配置，再 `docker compose up -d --wait`。首次上线无旧应用可回滚时，移除仅本次新增的 Caddy 站点并验证后 reload，再停止本项目容器；保留其他站点配置。DNS 可恢复原 DNSPod NS，但传播并非即时。
 
-源码合入后在干净的本地 main 工作区执行 `git merge --ff-only origin/main` 并核对 SHA。过程、具体发布 SHA/digest、备份位置和验收结果记录于 [Issue #7](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/7)。
+源码合入后在干净的本地 main 工作区执行 `git merge --ff-only origin/main` 并核对 SHA。首次上线的过程、发布 SHA 与 digest、备份位置和验收结果记录于 [Issue #7](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/7)；之后每次发布记在对应的变更 Issue（如 [#9](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/9)）。
