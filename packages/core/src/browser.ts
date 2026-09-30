@@ -1,9 +1,14 @@
-import type {
-  AssetResolver,
-  ResolvedAsset,
-  NormalizedImage,
-  NormalizeProfile,
-  ImageCodec,
+import {
+  NORMALIZE_PROFILES,
+  type AssetResolver,
+  type ResolvedAsset,
+  type NormalizedImage,
+  type NormalizeProfile,
+  type ImageCodec,
+  type ImageRef,
+  type ImageStore,
+  type PlacedImage,
+  type Warning,
 } from './types';
 export const DATABASE = 'jinzhang-assets';
 export const MAX_INPUT_BYTES = 12 * 1024 * 1024;
@@ -216,4 +221,76 @@ export function dataUrl(bytes: Uint8Array, mime: string) {
   for (let i = 0; i < bytes.length; i += 8192)
     binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return `data:${mime};base64,${btoa(binary)}`;
+}
+export interface DataUrlStoreOptions {
+  codec?: ImageCodec;
+  /** 读取远程图片的字节；不提供或读取、处理失败时保留原地址并警告。 */
+  fetchRemote?: (url: string) => Promise<Uint8Array>;
+  signal?: AbortSignal;
+  /** 每一步前调用，任务过期时抛错。 */
+  check?: () => void;
+  onProgress?: (message: string) => void;
+  /** 外层 store 汇总时传入自己的警告与计数。 */
+  warnings?: Warning[];
+  counts?: { embedded: number; remote: number };
+}
+/** 与平台无关的 data URL 归位：按 clipboard 档规范化后内嵌，网页与插件的复制路径共用。 */
+export class DataUrlImageStore implements ImageStore {
+  readonly warnings: Warning[];
+  readonly counts: { embedded: number; remote: number };
+  private codec: ImageCodec;
+  private cache = new Map<string, Promise<PlacedImage>>();
+  constructor(private options: DataUrlStoreOptions = {}) {
+    this.codec = options.codec ?? new CanvasImageCodec();
+    this.warnings = options.warnings ?? [];
+    this.counts = options.counts ?? { embedded: 0, remote: 0 };
+  }
+  private current() {
+    this.options.check?.();
+    this.options.signal?.throwIfAborted();
+  }
+  async put(ref: ImageRef): Promise<PlacedImage> {
+    this.current();
+    const source = ref.source;
+    if (source.kind === 'missing') throw new Error(`图片缺失：${ref.original}`);
+    if (source.kind === 'remote' || source.kind === 'hosted') {
+      try {
+        if (!this.options.fetchRemote) throw new Error('无法读取远程图片。');
+        return await this.bytes(await this.options.fetchRemote(source.url), ref.original);
+      } catch {
+        this.current();
+        this.counts.remote++;
+        this.warnings.push({
+          code: 'IMAGE_REMOTE_KEPT',
+          ref: ref.original,
+          message: '远程图片未能处理，已保留原地址，粘贴后请在平台里核对。',
+        });
+        return { src: source.url };
+      }
+    }
+    if ('bytes' in source) return this.bytes(source.bytes, ref.original);
+    throw new Error('图片来源无效。');
+  }
+  private async bytes(bytes: Uint8Array, ref: string) {
+    const key = await digest(bytes);
+    if (this.cache.has(key)) return this.cache.get(key)!;
+    const task = this.embed(bytes, ref);
+    this.cache.set(key, task);
+    try {
+      return await task;
+    } catch (error) {
+      this.cache.delete(key);
+      throw error;
+    }
+  }
+  private async embed(bytes: Uint8Array, ref: string) {
+    this.options.check?.();
+    this.options.onProgress?.('正在处理图片…');
+    const image = await this.codec.normalize(bytes, NORMALIZE_PROFILES.clipboard);
+    this.options.check?.();
+    if (image.animated)
+      this.warnings.push({ code: 'GIF_FIRST_FRAME', ref, message: '动图已转换为静态首帧。' });
+    this.counts.embedded++;
+    return { src: dataUrl(image.bytes, image.mime) };
+  }
 }
