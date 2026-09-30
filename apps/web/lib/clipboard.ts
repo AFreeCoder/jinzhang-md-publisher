@@ -6,7 +6,12 @@ import {
   type PlacedImage,
   type Warning,
 } from '@jinzhang/core';
-import { CanvasImageCodec, dataUrl, digest, MAX_INPUT_BYTES } from '@jinzhang/core/browser';
+import {
+  CanvasImageCodec,
+  DataUrlImageStore,
+  digest,
+  MAX_INPUT_BYTES,
+} from '@jinzhang/core/browser';
 export class StaleTaskError extends Error {
   constructor() {
     super('文章或设置已变化，请重新复制。');
@@ -102,41 +107,38 @@ export class CopyImageStore implements ImageStore {
   counts = { embedded: 0, uploaded: 0, remote: 0 };
   private codec = new CanvasImageCodec();
   private cache = new Map<string, Promise<PlacedImage>>();
+  // 公众号内嵌 data URL 与插件共用 core 的实现，警告与计数汇总到本对象。
+  private embed: DataUrlImageStore;
   constructor(
     private platform: 'wechat' | 'zhihu',
     private signal: AbortSignal,
     private assertCurrent: () => void,
     private onProgress: (message: string) => void = () => {},
-  ) {}
+  ) {
+    this.embed = new DataUrlImageStore({
+      codec: this.codec,
+      fetchRemote: (url) => fetchBytes(url, signal),
+      signal,
+      check: assertCurrent,
+      onProgress,
+      warnings: this.warnings,
+      counts: this.counts,
+    });
+  }
   async put(ref: ImageRef): Promise<PlacedImage> {
+    if (this.platform === 'wechat') return this.embed.put(ref);
     this.assertCurrent();
     this.signal.throwIfAborted();
     const source = ref.source;
     if (source.kind === 'missing') throw new Error(`图片缺失：${ref.original}`);
     if (source.kind === 'remote' || source.kind === 'hosted') {
-      if (this.platform === 'zhihu') {
-        this.counts.remote++;
-        this.warnings.push({
-          code: 'IMAGE_REMOTE_KEPT',
-          ref: ref.original,
-          message: '保留远程图片地址，粘贴后请在平台里核对。',
-        });
-        return { src: source.url };
-      }
-      try {
-        const bytes = await fetchBytes(source.url, this.signal);
-        return await this.bytes(bytes, ref.original);
-      } catch (error) {
-        this.assertCurrent();
-        this.signal.throwIfAborted();
-        this.counts.remote++;
-        this.warnings.push({
-          code: 'IMAGE_REMOTE_KEPT',
-          ref: ref.original,
-          message: '远程图片未能处理，已保留原地址，粘贴后请在平台里核对。',
-        });
-        return { src: source.url };
-      }
+      this.counts.remote++;
+      this.warnings.push({
+        code: 'IMAGE_REMOTE_KEPT',
+        ref: ref.original,
+        message: '保留远程图片地址，粘贴后请在平台里核对。',
+      });
+      return { src: source.url };
     }
     if ('bytes' in source) return this.bytes(source.bytes, ref.original);
     throw new Error('图片来源无效。');
@@ -160,10 +162,6 @@ export class CopyImageStore implements ImageStore {
     this.assertCurrent();
     if (image.animated)
       this.warnings.push({ code: 'GIF_FIRST_FRAME', ref, message: '动图已转换为静态首帧。' });
-    if (this.platform === 'wechat') {
-      this.counts.embedded++;
-      return { src: dataUrl(image.bytes, image.mime) };
-    }
     return transitCached(await digest(image.bytes), async () => {
       const json = async (url: string, body: unknown) => {
         const response = await fetch(url, {
