@@ -1,12 +1,28 @@
 import type { ImageRef, Warning } from '@jinzhang/core';
 import type { JinzhangError, PlatformSummary } from '@jinzhang/core/publish';
+const decode = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+/** 预处理改写出的内部引用换回用户认得的路径：vault 内路径或磁盘绝对路径。 */
+export function displayRef(ref: string) {
+  if (ref.startsWith('jz-local://vault/')) return decode(ref.slice('jz-local://vault/'.length));
+  if (ref.startsWith('jz-local://file/')) {
+    const path = decode(ref.slice('jz-local://file/'.length));
+    return /^[a-z]:\//i.test(path) ? path : `/${path}`;
+  }
+  return ref;
+}
 export function renderErrors(parent: HTMLElement, errors: JinzhangError[]) {
   if (!errors.length) return;
   const list = parent.createEl('ul', { cls: 'jinzhang-errors' });
   for (const error of errors) {
     const item = list.createEl('li');
     item.createSpan({ text: error.message });
-    if (error.ref) item.createSpan({ cls: 'jinzhang-ref', text: `（${error.ref}）` });
+    if (error.ref) item.createSpan({ cls: 'jinzhang-ref', text: `（${displayRef(error.ref)}）` });
     if (error.action) item.createDiv({ cls: 'jinzhang-action', text: `下一步：${error.action}` });
   }
 }
@@ -15,7 +31,7 @@ export function renderWarnings(parent: HTMLElement, warnings: Warning[]) {
   const list = parent.createEl('ul', { cls: 'jinzhang-warnings' });
   for (const warning of warnings)
     list.createEl('li', {
-      text: warning.ref ? `${warning.message}（${warning.ref}）` : warning.message,
+      text: warning.ref ? `${warning.message}（${displayRef(warning.ref)}）` : warning.message,
     });
 }
 const onOff = (value: boolean) => (value ? '开' : '关');
@@ -40,4 +56,4 @@ export function coverUrl(cover: ImageRef | null, allocated: string[]) {
   allocated.push(url);
   return url;
 }
-export const baseName = (path: string) => path.split(/[\\/]/).pop() || path;
+export const baseName = (path: string) => displayRef(path).split(/[\\/]/).pop() || path;

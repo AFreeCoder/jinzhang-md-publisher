@@ -89,3 +89,12 @@ describe('Obsidian 私有写法', () => {
     expect(run('前 %%![[a.png]] [[笔记]] ![](file:///a.png)%% 后').markdown).toBe('前  后');
   });
 });
+describe('给人看的引用', () => {
+  it('内部引用换回 vault 内路径或磁盘绝对路径，其余原样', async () => {
+    const { displayRef } = await import('../src/modals/render');
+    expect(displayRef(vaultRef('assets/图 片.png'))).toBe('assets/图 片.png');
+    expect(displayRef(fileRef('/Users/me/a b.png'))).toBe('/Users/me/a b.png');
+    expect(displayRef(localFileRef('C:\\pics\\a.png')!)).toBe('C:/pics/a.png');
+    expect(displayRef('../assets/a.png')).toBe('../assets/a.png');
+  });
+});

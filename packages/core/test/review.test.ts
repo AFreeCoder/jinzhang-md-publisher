@@ -60,3 +60,12 @@ it('HTML 图片补图支持中文、实体及无引号地址', async () => {
     );
   }
 });
+it('编辑器私有写法只在正文文字里识别，代码里的 [[ 与 > [! 不算', async () => {
+  const codes = async (source: string) => render(await make(source)).warnings.map((w) => w.code);
+  expect(await codes('正文 [[双链]]')).toContain('UNSUPPORTED_SYNTAX');
+  expect(await codes('> [!note] 标题\n> 内容')).toContain('UNSUPPORTED_SYNTAX');
+  expect(await codes('```md\n[[双链]]\n> [!note]\n```\n\n行内 `![[a.png]]`')).not.toContain(
+    'UNSUPPORTED_SYNTAX',
+  );
+  expect(await codes('普通引用\n\n> 引用 [!不是 callout]')).not.toContain('UNSUPPORTED_SYNTAX');
+});

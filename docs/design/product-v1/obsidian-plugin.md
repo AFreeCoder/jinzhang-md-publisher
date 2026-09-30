@@ -1,6 +1,6 @@
 # 锦章一期设计：Obsidian 插件
 
-状态：已评审，2026-09-30 定稿（issue #12）。2026-09-08 起草，2026-09-30 按已实现的 core 与合并后的 architecture.md、skill.md 重写，同日合并 Codex 评审。上游：[需求文档](../../requirements/product-v1/requirements.md) 功能 2、5、6、12、13、15、16、18 至 28、31 与业务规则 6.1 至 6.6；过程记录在 [issue #12](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/12)（插件）与 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)（总体架构）。总体架构与 core 见 [architecture.md](architecture.md)，本文只写插件这个壳。
+状态：已评审，2026-09-30 定稿（issue #12）；同日实现合入（PR #19），真实账号验收与首个 BRAT 发布待做。2026-09-08 起草，2026-09-30 按已实现的 core 与合并后的 architecture.md、skill.md 重写，同日合并 Codex 评审。上游：[需求文档](../../requirements/product-v1/requirements.md) 功能 2、5、6、12、13、15、16、18 至 28、31 与业务规则 6.1 至 6.6；过程记录在 [issue #12](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/12)（插件）与 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)（总体架构）。总体架构与 core 见 [architecture.md](architecture.md)，本文只写插件这个壳。
 
 ## 1. 结论
 
@@ -191,3 +191,4 @@ core 只认标准 Markdown，Obsidian 的写法由插件在交给 core 前转换
 - 2026-09-30 重写：接线改为已实现的 core 接口（`VaultAssetResolver` 返回 `blob`、直接复用 `CanvasImageCodec`、`previewDocument` 显示封面）；明确插件是本地形态的第一个实现，投递、配置与状态、`:::card` 随插件落地，`./node` 不放 sharp；预处理增加属性区静默去掉与 `%%注释%%` 删除；复制改为公众号 data URL、知乎要求登录；分发按 BRAT 实际机制改写（Release 只用于插件，社区上架需根目录 manifest）；第一版不做同步滚动、手机宽度与模板实时预览。来源 issue #12
 - 2026-09-30 合并 Codex 评审（issue #12）：属性区改为对编辑器文本调用 `getFrontMatterInfo`，一次操作只用一份文本快照；解析器按引用形式分支，补系统绝对路径，相对引用交给 `getFirstLinkpathDest`，嵌入图与 vault 外路径改写为 `jz-local://vault/…`、`jz-local://file/…` 以通过 core 的协议清理；体检逐平台阻塞；手动复制改用图片已归位的成品；结果不确定时第一版只提示在平台删掉重复草稿再重推，不做绑定界面（用户同意简化）；`requestUrl` 自包超时；`minAppVersion` 至少 1.5.7；固定内容标注后续单独调整；新增验收要点
 - 2026-09-30 用户确认定稿，状态改为已评审，沉淀到仓库；两项跨壳调整回写 architecture.md 与 skill.md。来源 issue #12
+- 2026-09-30 实现合入（issue #12，PR #17、#18、#19）。第 14 节待实测第 1、3、4、5 项在 Obsidian 1.10.6 上本地验证通过：弹窗里的 `webview` 能打开知乎登录页、经 `@electron/remote` 读到该 partition 的 cookie；`srcdoc` 里的 `blob:` 图片可显示；Canvas 在 `platform` 档下六张测试图（大照片、半透明 PNG、WebP、GIF、SVG、普通 PNG）全部达标，超过 12MB 的原图按预期拒绝；Node `https` 加代理 agent 可用。`minAppVersion` 维持 1.5.7：更早版本若没有 `webview` 或 `@electron/remote`，登录退化为粘贴 cookie。第 2 项与第 6 项需要真实账号，和用户一起做。实现与本文的出入记在 issue #12，本文未回改

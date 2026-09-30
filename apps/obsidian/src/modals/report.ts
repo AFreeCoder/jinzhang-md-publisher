@@ -82,8 +82,7 @@ export class ResultModal extends Modal {
           .onClick(() => window.open(result.entryUrl || WECHAT_ENTRY_URL));
         renderWarnings(section, result.warnings);
       } else if (result.outcome === 'uncertain') {
-        head.createSpan({ text: '　结果不确定' });
-        section.createDiv({ text: `${result.message}。先去草稿箱确认。` });
+        head.createSpan({ text: '　结果不确定，先去草稿箱确认' });
         renderErrors(section, [result.error]);
       } else if (result.outcome === 'failed') {
         head.createSpan({ text: '　失败' });

@@ -92,6 +92,13 @@ describe('VaultAssetResolver', () => {
     expect(bytesOf(await r.resolve('jz-local://file/C%3A/pics/a.png'))).toEqual([6]);
     expect(bytesOf(await r.resolve('C:\\pics\\b.png'))).toEqual([5]);
     expect((await r.resolve('/nowhere.png')).kind).toBe('missing');
+    const literal = new VaultAssetResolver(
+      fakeVault({ '/pics/100%25 done.png': [3], '/pics/a b.png': [4] }).access,
+      '/vault',
+      'posts/note.md',
+    );
+    expect(bytesOf(await literal.resolve('/pics/100%25 done.png'))).toEqual([3]);
+    expect(bytesOf(await literal.resolve('/pics/a%20b.png'))).toEqual([4]);
   });
   it('拼接磁盘路径处理 ..，Windows 路径保留盘符', () => {
     expect(joinDisk('/vault', 'posts/../a.png')).toBe('/vault/a.png');

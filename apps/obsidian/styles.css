@@ -137,10 +137,14 @@
   border: 1px solid var(--background-modifier-border);
   background: #fff;
 }
+/* 知乎登录页按桌面宽度排版，弹窗放宽，webview 高度随窗口收缩。 */
+.jinzhang-login-modal {
+  width: min(1000px, 94vw);
+}
 .jinzhang-zhihu-login .jinzhang-webview {
   display: flex;
   width: 100%;
-  height: 560px;
+  height: min(600px, 62vh);
 }
 .jinzhang-cookie-input,
 .jinzhang-template {

@@ -1,6 +1,6 @@
 # 锦章一期设计：总体架构与 core
 
-状态：已评审，2026-09-10 定稿（issue #4 快照 1 至 4）；渲染路径已随网页版实现并于 2026-09-18 上线，2026-09-30 按已实现的代码（main `4d312c0`）同步，未实现部分仍为设计，见第 1 节末的实现状态。2026-09-08 起草。上游：[需求文档](../../requirements/product-v1/requirements.md)；过程记录在 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)，同类项目源码调研结论摘要见该 issue。三个壳各有一份设计：[网页版](web.md)、[skill](skill.md)、[Obsidian 插件](obsidian-plugin.md)。本文回答「系统怎么做到」：架构、技术选型、渲染管线、数据模型、投递适配器、配置与状态、错误模型，以及与需求的映射。
+状态：已评审，2026-09-10 定稿（issue #4 快照 1 至 4）；渲染路径已随网页版实现并于 2026-09-18 上线，2026-09-30 按已实现的代码（main `4d312c0`）同步；同日投递适配器、配置目录读写与 Obsidian 插件实现合入（issue #12）。未实现部分仍为设计，见第 1 节末的实现状态。2026-09-08 起草。上游：[需求文档](../../requirements/product-v1/requirements.md)；过程记录在 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)，同类项目源码调研结论摘要见该 issue。三个壳各有一份设计：[网页版](web.md)、[skill](skill.md)、[Obsidian 插件](obsidian-plugin.md)。本文回答「系统怎么做到」：架构、技术选型、渲染管线、数据模型、投递适配器、配置与状态、错误模型，以及与需求的映射。
 
 ## 1. 结论
 
@@ -24,7 +24,7 @@
 
 否决：整包依赖 `@wenyan-md/core`（ESM-only、依赖锁版、无浏览器入口、单人维护、伪类选择器被静默跳过，见 issue #4 调研摘要）；基于 DOM 的管线（Node 侧要 jsdom，三端 DOM 行为有差异）；juice 内联；把渲染放在 Obsidian 自带的 MarkdownRenderer（与「一个 core」冲突，CLI 无法复用）。
 
-实现状态（2026-09-30，main `4d312c0`）：
+实现状态（2026-09-30，Obsidian 插件合入后）：
 
 | 部分 | 状态 | 位置 |
 |---|---|---|
@@ -32,8 +32,12 @@
 | 预览壳 `./preview` | 已实现 | `packages/core/src/preview.ts` |
 | 浏览器宿主 `./browser`：IndexedDB 资源解析、Canvas 编解码 | 已实现 | `packages/core/src/browser.ts` |
 | 网页版 | 已实现，2026-09-18 上线 | `apps/web`，见 [web.md](web.md) |
-| `:::card` 名片、投递适配器 `./publish`、共享文件读写 `./node`、配置与状态、错误模型、体检（第 6、8 至 11 节），以及 `./browser` 里网页与插件共用的 data URL 归位（第 5 节） | 未实现，本文为设计 | 无 |
-| 命令行、skill、Obsidian 插件 | 未实现；插件是本地形态的第一个实现，设计见 [obsidian-plugin.md](obsidian-plugin.md) | 无 |
+| 投递适配器 `./publish`：错误模型、体检、公众号与知乎（第 8、10、11 节） | 已实现，随插件合入；与本文的出入记在 issue #12 的批次快照，本文未回改 | `packages/core/src/publish/` |
+| 共享文件读写 `./node`：配置、凭证、状态、模板、写锁（第 9 节） | 已实现，随插件合入 | `packages/core/src/node.ts`、`local.ts` |
+| `./browser` 里网页与插件共用的 data URL 归位（第 5 节） | 已实现，网页 `CopyImageStore` 的公众号分支已改为调用它 | `packages/core/src/browser.ts` 的 `DataUrlImageStore` |
+| Obsidian 插件 | 已实现，2026-09-30 合入；真实账号验收与首个 BRAT 发布待做 | `apps/obsidian`，见 [obsidian-plugin.md](obsidian-plugin.md) |
+| `:::card` 名片、`:::recent` 按平台的样式（第 6 节） | 未实现，等固定内容的调整结论 | 无 |
+| 命令行、skill | 未实现，复用 `./publish` 与 `./node` | 无 |
 
 其余各节按已实现的代码写实际接口；未实现的部分保持设计，在对应小节标出。
 
@@ -42,11 +46,11 @@
 ```
 jinzhang-md-publisher/
 ├── packages/
-│   ├── core/            # @jinzhang/core：解析、方言、主题、固定内容、图片归位；投递适配器待实现
+│   ├── core/            # @jinzhang/core：解析、方言、主题、固定内容、图片归位、投递适配器、配置目录读写
 │   └── cli/             # （未建）jinzhang 命令行（bin: jinzhang），skill 的底座
 ├── apps/
 │   ├── web/             # 门户 + 在线排版（Next.js，已上线）
-│   └── obsidian/        # （未建）Obsidian 插件（esbuild）
+│   └── obsidian/        # Obsidian 插件（esbuild）
 ├── skills/
 │   └── jinzhang/        # （未建）SKILL.md 与 references/，通过 skills CLI 安装
 ├── fixtures/            # article.md（快照基线）、acceptance.md（真实平台验收稿）与测试图片
@@ -56,7 +60,7 @@ jinzhang-md-publisher/
 └── docs/                # 常青文档与阶段结论
 ```
 
-- core 用 tsup 产出 ESM 与 CJS 两种格式，附类型声明。已有入口：`.`（渲染，纯函数）、`./preview`（预览壳：把 `RenderResult` 包成公众号或知乎的预览页面 HTML，三个壳共用）、`./browser`（Canvas 编解码、IndexedDB 资源解析等浏览器宿主实现）；实现投递时再加 `./publish`（投递适配器，只经注入的宿主联网与读写，不直接调用 Node API）与 `./node`（配置、凭证、状态、模板与写锁的文件读写，只依赖 Node 内置模块，命令行与插件共用，构建时把 Node 内置模块标为外部）。sharp 编解码与带代理的传输不进 core，由各壳的宿主实现提供：命令行包用 sharp 与 undici，插件用 `CanvasImageCodec`、`requestUrl` 与 Node `https` 代理 agent（第 3 节宿主表）；插件打包不能带原生模块
+- core 用 tsup 产出 ESM 与 CJS 两种格式，附类型声明。已有入口：`.`（渲染，纯函数）、`./preview`（预览壳：把 `RenderResult` 包成公众号或知乎的预览页面 HTML，三个壳共用）、`./browser`（Canvas 编解码、IndexedDB 资源解析等浏览器宿主实现）；随插件加入了 `./publish`（投递适配器，只经注入的宿主联网与读写，不直接调用 Node API）与 `./node`（配置、凭证、状态、模板与写锁的文件读写，只依赖 Node 内置模块，命令行与插件共用，构建时把 Node 内置模块标为外部）。sharp 编解码与带代理的传输不进 core，由各壳的宿主实现提供：命令行包用 sharp 与 undici，插件用 `CanvasImageCodec`、`requestUrl` 与 Node `https` 代理 agent（第 3 节宿主表）；插件打包不能带原生模块
 - core 构建把依赖全部打进产物（`noExternal`），按浏览器平台与 `worker` 条件解析依赖，选用不依赖 DOM 的实现；包标记为 `private`，不发布到 npm，壳经 pnpm workspace 引用。发布命令行时再决定是否对外发布
 - 主题源文件是 CSS，`pnpm themes` 把它们生成到 `themes/generated.ts` 供运行时读取；`pnpm build` 先跑这一步
 - 测试统一用 Vitest；core 的快照以三套主题的任务列表与代码样例、以及 `fixtures/article.md` 在两平台与三主题下的输出为回归基线；`scripts/check-core-build.mjs` 核对 ESM 与 CJS 两份产物对标准文章的输出一致。这些都在 `pnpm check` 里，CI 每次推送执行
@@ -77,7 +81,7 @@ type ResolvedAsset =             // 已实现
   | { kind: 'blob' | 'data'; bytes: Uint8Array; mime: string; assetId?: string }
   | { kind: 'missing'; reason: string };
 
-interface PublishHost {          // 设计，未实现；只有命令行与插件实现
+interface PublishHost {          // 只有命令行与插件实现；插件已实现
   http: HttpClient;              // fetch 风格；要能发 multipart、自定义头（含 Cookie）、走代理
   codec: ImageCodec;             // 第 5 节
   readFile(absPath: string): Promise<Uint8Array>;
@@ -93,7 +97,7 @@ interface PublishHost {          // 设计，未实现；只有命令行与插�
 
 宿主实现一览：
 
-| 接口 | 命令行（未实现） | Obsidian 插件（未实现） | 网页版（已实现） |
+| 接口 | 命令行（未实现） | Obsidian 插件（已实现） | 网页版（已实现） |
 |---|---|---|---|
 | `http` | Node 内置 fetch（undici）；代理用 undici 的 `ProxyAgent`（http、https）与 `fetch-socks`（socks5）显式接入，不依赖 `NODE_USE_ENV_PROXY` 这类运行时开关，让优先级与出口可预测；可带 `Cookie` 等任意头 | 默认 Obsidian `requestUrl`（走主进程，无 CORS 限制，可带任意头；multipart 手工拼装）；配置了公众号代理时公众号请求改走 Node `https` 加代理 agent，因为 `requestUrl` 没有代理参数；它也没有超时参数，宿主自包一层超时，创建草稿超时按结果不确定处理 | 不实现 `PublishHost`；浏览器 fetch 只在网页自己的 `ImageStore` 里用于签名、直传与远程图片 |
 | `readFile` | `node:fs` | `vault.readBinary`；vault 外的路径用 `node:fs`（桌面端可用） | 无 |
@@ -150,7 +154,7 @@ interface Warning { code: string; message: string; ref?: string }
 
 三种长度口径分开：`visibleTextChars` 是读者看到的字数；`htmlChars` 是图片仍为 `jz-img:<n>` 占位时的 HTML 字符数，`CONTENT_NEAR_LIMIT` 按它判断；公众号 2 万字符约束的是替换成接口地址后的长度，体检要在 `htmlChars` 上按图片数加地址预算（沿用 my-toolbox 每张 512 字符）来预估，归位后再按实际长度复检（第 11 节）；剪贴板载荷的字节数由 `placeImages` 返回的 `bytes` 给出，data URL 内嵌会把它撑大，不套 2 万阈值。
 
-一期定义的警告码：core 产生 `FRONTMATTER_IGNORED`、`UNSUPPORTED_SYNTAX`（编辑器私有写法、未知样式块按文本处理）、`HTML_STRIPPED`（原始 HTML 里被清理掉的标签或属性）、`TITLE_TOO_LONG`（超 32 字）、`IMAGE_MISSING`（引用无法解析，`ref` 为原始引用）、`CONTENT_NEAR_LIMIT`（`htmlChars` 超过 18000），以及放在 `degraded` 里的 `ZHIHU_DEGRADED`（每一处降级一条）；`ImageStore` 实现产生 `GIF_FIRST_FRAME` 与 `IMAGE_REMOTE_KEPT`（远程图片保留原地址）；投递适配器产生 `CARD_FILTERED`（回读发现名片被过滤，未实现）。
+一期定义的警告码：core 产生 `FRONTMATTER_IGNORED`、`UNSUPPORTED_SYNTAX`（编辑器私有写法、未知样式块按文本处理）、`HTML_STRIPPED`（原始 HTML 里被清理掉的标签或属性）、`TITLE_TOO_LONG`（超 32 字）、`IMAGE_MISSING`（引用无法解析，`ref` 为原始引用）、`CONTENT_NEAR_LIMIT`（`htmlChars` 超过 18000），以及放在 `degraded` 里的 `ZHIHU_DEGRADED`（每一处降级一条）；`ImageStore` 实现产生 `GIF_FIRST_FRAME` 与 `IMAGE_REMOTE_KEPT`（远程图片保留原地址）；投递适配器产生 `CARD_FILTERED`（回读发现名片被过滤；`:::card` 实现后才会出现）。
 
 阶段与规则来源。1 到 6 属于 `prepare`，7 到 10 属于 `render`：
 
@@ -232,12 +236,12 @@ interface ImageStore {
 - 两张映射表：「原始引用 → 资源」决定文章里哪一处引用对应哪个文件，缺图时按引用逐条绑定；「内容 SHA-256 → 字节」只做去重。哈希不能替代引用绑定：用户补上一张 `a.png`，要由用户指明它对应原文的哪个引用（Codex 评审 W4）
 - 去重：同一次推送按内容 SHA-256 去重；跨次推送查 `state.images[hash][platform]`，命中则不再上传
 - 封面：优先单独指定的图；否则正文第一张图，固定开头里的图不算候选；两者都没有时公众号阻止（封面必填），知乎警告后继续。公众号封面走永久素材 `add_material`，`media_id` 按内容哈希缓存在 `state.covers`；同一张图既做封面又在正文里时，正文走 `uploadimg`，封面走永久素材，两次上传、两个结果
-- 与平台无关的 data URL 归位（按 `clipboard` 档规范化后内嵌）放在 `./browser`，网页版与插件共用。网页版现有的 `CopyImageStore(platform)` 在插件实现时改为调用它，知乎中转那一支留在网页版，见 [web.md](web.md) 第 4 节
+- 与平台无关的 data URL 归位（按 `clipboard` 档规范化后内嵌）放在 `./browser`，网页版与插件共用。网页版的 `CopyImageStore(platform)` 已改为调用它（`DataUrlImageStore`），知乎中转那一支留在网页版，见 [web.md](web.md) 第 4 节
 - 失败信息必须带上原始引用：`IMAGE_DOWNLOAD_FAILED: ./images/a.png`
 
 ## 6. 固定内容
 
-实现状态：模板变量替换（`template()`）、固定内容拼装、`:::divider` 与 `:::recent` 已实现，模板内容由壳经 `ArticleInput.templates` 传入；`:::card` 名片、按平台给 `:::recent` 套的样式、从配置目录读模板文件都未实现。网页版的固定内容是表单，不走本节的模板文件，见 [web.md](web.md) 第 7 节。
+实现状态：模板变量替换（`template()`）、固定内容拼装、`:::divider` 与 `:::recent` 已实现，模板内容由壳经 `ArticleInput.templates` 传入；从配置目录读模板文件已随 `./node` 与插件实现；`:::card` 名片与按平台给 `:::recent` 套的样式未实现。网页版的固定内容是表单，不走本节的模板文件，见 [web.md](web.md) 第 7 节。
 
 - 配置目录 `templates/<platform>/header.md` 与 `footer.md`，内容是 Markdown，允许内嵌 HTML
 - 变量语法 `{{title}}`、`{{date}}`（渲染当天，格式 `YYYY-MM-DD`）、`{{author}}`（来自 `config.author`）；行内任一变量缺值则整行不渲染；只读取 `config` 自有的字符串属性，值做 HTML 转义
@@ -263,7 +267,7 @@ interface ImageStore {
 
 ## 8. 投递适配器
 
-未实现，本节是设计。
+已实现（`packages/core/src/publish/`，issue #12）；与本节的出入记在 issue #12 批次 2 快照，本节未回改。
 
 ```ts
 interface Publisher {
@@ -314,7 +318,7 @@ type PushResult =
 
 ## 9. 配置与状态
 
-未实现，本节是设计；网页版的本地存储见 [web.md](web.md) 第 2.3 节。
+已实现（`packages/core/src/node.ts`、`local.ts`，issue #12）；网页版的本地存储见 [web.md](web.md) 第 2.3 节。
 
 目录 `~/.config/jinzhang/`，环境变量 `JINZHANG_HOME` 覆盖；三个操作系统同一路径，便于文档与迁移。目录 0700，凭证文件 0600。
 
@@ -382,7 +386,7 @@ type PushResult =
 
 ## 10. 错误模型
 
-未实现，本节是设计。
+已实现（`packages/core/src/publish/errors.ts`）；表外新增的错误码见 issue #12 批次 2 快照。
 
 ```ts
 interface JinzhangError {
@@ -418,7 +422,7 @@ interface JinzhangError {
 
 ## 11. 体检（推送前只读检查）
 
-未实现，本节是设计。`preflight` 按所选平台分别执行，无副作用（获取公众号 token 除外，它不产生内容但会验证白名单）：
+已实现（各平台 `Publisher.preflight`）。`preflight` 按所选平台分别执行，无副作用（获取公众号 token 除外，它不产生内容但会验证白名单）：
 
 | 检查项 | 公众号 | 知乎 |
 |---|---|---|
@@ -493,3 +497,4 @@ issue #1 快照 9 的八项实测，按它们各自影响的设计决策归位�
 - 2026-09-10 评审收敛，状态改为已评审，沉淀到仓库
 - 2026-09-30 按已实现的 core（main `4d312c0`）同步：第 1 节加实现状态；第 2 节目录与构建按实际（依赖打进产物、包不发布、主题生成、快照基线）；第 3 节去掉 `RenderHost`（渲染只需 `AssetResolver`，编解码由 `ImageStore` 持有），`ResolvedAsset` 改为实际类型并去掉 `local`，插件编解码复用 `CanvasImageCodec`，依赖边界检查落到脚本；第 4 节接口改为实际签名，补 `sourceLocations`、根入口的其他导出、`htmlChars` 的实际口径与体检预算，更新警告码与各阶段规则（frontmatter 只去映射、按源位置保留原始引用、中文软换行、`style` 允许列表、压缩不再按继承删除声明）；4.1 根节点、表格、脚注、任务列表与主题限制按实现；4.2 补相邻代码块规则与粘贴路径验收；第 5 节 `ImageStore.put` 改为接收引用，补两档规格与 Canvas 编解码细节；第 6 节标出已实现与未实现（`:::card`、`:::recent` 样式、模板文件）；第 7 节主题引擎按实现收窄（不支持 `var()`、`url()`）并补维护规则；第 8 至 11 节标为未实现，体检长度预估补地址预算；第 12 节更新实测进展。来源 issue #4、#5、#9
 - 2026-09-30 按插件设计定稿（issue #12）回写：`./node` 只放命令行与插件共用的文件读写，sharp 编解码与带代理的传输由各壳的宿主实现提供（命令行包用 sharp 与 undici）；与平台无关的 data URL 归位放 `./browser`，网页与插件共用；宿主表的插件一列按插件设计更新（`requestUrl` 自包超时、解析器分支）；补 `jz-local://` 的三种用法；插件设计链接改为 obsidian-plugin.md
+- 2026-09-30 投递适配器、配置目录读写与 Obsidian 插件实现合入（issue #12，PR #17、#18、#19）：第 1 节实现状态与第 2、3、5、6、8 至 11 节的「未实现」标注更新；接口与实现的出入不回改，记在 issue #12 的批次快照

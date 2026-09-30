@@ -37,6 +37,7 @@ export class ZhihuLoginModal extends Modal {
     super(app);
   }
   onOpen() {
+    this.modalEl.addClass('jinzhang-login-modal');
     this.contentEl.addClass('jinzhang-modal', 'jinzhang-zhihu-login');
     this.titleEl.setText('登录知乎');
     const electron = remote();

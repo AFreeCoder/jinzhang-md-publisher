@@ -119,16 +119,24 @@ export class VaultAssetResolver implements AssetResolver {
         (await this.fromDisk(absPath)) ?? { kind: 'missing', reason: `磁盘上找不到 ${absPath}` }
       );
     }
-    const path = decode(ref.trim());
+    const raw = ref.trim();
+    const path = decode(raw);
     if (!path) return { kind: 'missing', reason: '图片地址为空' };
-    if (isWindowsAbsolute(path))
-      return (await this.fromDisk(path)) ?? { kind: 'missing', reason: `磁盘上找不到 ${path}` };
+    // 绝对路径先按原样读（共享状态里的封面就是原样的路径），再按 URL 解码后的读。
+    const disk = async (candidates: string[]) => {
+      for (const candidate of new Set(candidates)) {
+        const found = await this.fromDisk(candidate);
+        if (found) return found;
+      }
+    };
+    if (isWindowsAbsolute(raw) || isWindowsAbsolute(path))
+      return (await disk([raw, path])) ?? { kind: 'missing', reason: `磁盘上找不到 ${path}` };
     if (path.startsWith('/')) {
       const inVault = vaultPath(path);
       const file = inVault !== undefined ? this.vault.getFileByPath(inVault) : null;
       if (file) return this.fromVault(file);
       return (
-        (await this.fromDisk(path)) ?? {
+        (await disk([raw, path])) ?? {
           kind: 'missing',
           reason: `找过 vault 内的 /${inVault ?? ''} 与磁盘上的 ${path}`,
         }

@@ -9,7 +9,7 @@ import {
 import { escapeHtml, placeImages, themes, type ImageRef, type Platform } from '@jinzhang/core';
 import { previewDocument } from '@jinzhang/core/preview';
 import type JinzhangPlugin from './main';
-import { baseName } from './modals/render';
+import { baseName, displayRef } from './modals/render';
 export const VIEW_TYPE = 'jinzhang-preview';
 /** 右侧栏预览（设计第 5 节）：跟随当前笔记，500 毫秒防抖，晚返回的旧结果丢弃，不可见时不排版。 */
 export class PreviewView extends ItemView {
@@ -191,7 +191,7 @@ export class PreviewView extends ItemView {
       for (const image of missing)
         html = html.replace(
           /<img\b[^>]*src=""[^>]*>/,
-          `<section class="missing">图片缺失：${escapeHtml(image.original)}</section>`,
+          `<section class="missing">图片缺失：${escapeHtml(displayRef(image.original))}</section>`,
         );
       const coverSrc = result.cover ? this.blobOf(result.cover, allocated) || undefined : undefined;
       const account = await this.plugin.accountName(platform, config);
@@ -241,7 +241,7 @@ export class PreviewView extends ItemView {
       const list = el.createEl('ul');
       for (const image of unresolved)
         list.createEl('li', {
-          text: `${image.original}：${image.source.kind === 'missing' ? image.source.reason : ''}`,
+          text: `${displayRef(image.original)}：${image.source.kind === 'missing' ? image.source.reason : ''}`,
         });
     }
     const notes = warnings.filter((w) => w.code !== 'IMAGE_MISSING');
@@ -250,7 +250,7 @@ export class PreviewView extends ItemView {
       const list = el.createEl('ul');
       for (const warning of notes)
         list.createEl('li', {
-          text: warning.ref ? `${warning.message}（${warning.ref}）` : warning.message,
+          text: warning.ref ? `${warning.message}（${displayRef(warning.ref)}）` : warning.message,
         });
     }
   }

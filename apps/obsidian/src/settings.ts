@@ -21,21 +21,33 @@ export class JinzhangSettingTab extends PluginSettingTab {
   ) {
     super(app, plugin);
   }
+  private rendering = 0;
   async display() {
+    // 先读完配置目录再同步绘制；重复调用时只保留最后一次，避免界面重复。
+    const token = ++this.rendering;
     const { containerEl } = this;
-    containerEl.empty();
-    containerEl.addClass('jinzhang-settings');
     const files = this.plugin.files;
     let config: JinzhangConfig;
+    let credentials: Awaited<ReturnType<typeof readCredentials>>;
+    const templates = new Map<string, string>();
     try {
       config = await files.config.read();
+      credentials = await readCredentials(this.plugin.host);
+      for (const platform of ['wechat', 'zhihu'] as const)
+        for (const part of ['header', 'footer'] as const)
+          templates.set(`${platform}-${part}`, await files.templates.read(platform, part));
     } catch (error) {
+      if (token !== this.rendering) return;
+      containerEl.empty();
       containerEl.createEl('p', {
         cls: 'jinzhang-warning',
         text: `读取配置失败：${error instanceof Error ? error.message : String(error)}`,
       });
       return;
     }
+    if (token !== this.rendering) return;
+    containerEl.empty();
+    containerEl.addClass('jinzhang-settings');
     const update = async (patch: Parameters<typeof files.config.update>[0]) => {
       config = await files.config.update(patch);
       this.plugin.refreshViews();
@@ -50,7 +62,6 @@ export class JinzhangSettingTab extends PluginSettingTab {
       );
     };
     containerEl.createEl('h3', { text: '公众号' });
-    const credentials = await readCredentials(this.plugin.host);
     let appId = credentials?.appId ?? '';
     let appSecret = '';
     new Setting(containerEl)
@@ -191,7 +202,7 @@ export class JinzhangSettingTab extends PluginSettingTab {
           );
         const area = new TextAreaComponent(containerEl);
         area.inputEl.addClass('jinzhang-template');
-        area.setValue(await files.templates.read(platform, part));
+        area.setValue(templates.get(`${platform}-${part}`) ?? '');
         area.onChange((value) =>
           later(`${platform}-${part}`, async () => {
             await files.templates.write(platform, part, value);
