@@ -1,11 +1,11 @@
 # 锦章一期设计：网页版（门户 + 在线排版）
 
-状态：已评审，2026-09-10 定稿（issue #5）；已实现，2026-09-18 起在 https://jinzhang.ink 上线（部署见 [deployment.md](../../deployment.md)），2026-09-30 按线上版本 `4d312c0` 同步本文。2026-09-08 起草，2026-09-09 按用户决定改为 Next.js，同日合并 Codex 评审。上游：[需求文档](../../requirements/product-v1/requirements.md) 功能 2、17、25、29 与业务规则 6.1、6.2、6.3、7.3；过程记录在 [issue #5](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/5)（网页版）、[issue #9](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/9)（上线后的排版页优化）与 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)（总体架构）。总体架构与 core 见 [architecture.md](architecture.md)，本文只写网页版这个壳，不另写一套转换规则。
+状态：已评审，2026-09-10 定稿（issue #5）；已实现，2026-09-18 起在 https://jinzhang.ink 上线（部署见 [deployment.md](../../deployment.md)），2026-09-30 按线上版本 `4d312c0` 同步本文。2026-09-08 起草，2026-09-09 按用户决定改为 Next.js，同日合并 Codex 评审。上游：[需求文档](../../requirements/product-v1/requirements.md) 功能 2、17、25、29 与业务规则 6.1、6.2、6.3、7.3；过程记录在 [issue #5](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/5)（网页版）、[issue #9](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/9)（上线后的排版页优化）、[issue #14](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/14)（中转保留期改为 1 天）与 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)（总体架构）。总体架构与 core 见 [architecture.md](architecture.md)，本文只写网页版这个壳，不另写一套转换规则。
 
 ## 1. 结论
 
 - 网页版是一个 Next.js 应用（App Router，服务端模式）：门户首页加在线排版页，没有账号、数据库和文章上传。排版、预览、复制全部在浏览器里由 core 完成；服务端只有图片中转的两个接口（签发上传条件、校验已上传对象并发放限时读取地址），另有一个供容器健康检查与发布核对用的 `/api/health`
-- 复制路径按平台分两条：复制到公众号时图片以 data URL 内嵌进剪贴板 HTML，这是 my-toolbox 日常使用验证过的做法；复制到知乎时剪贴板里放私有 OSS 桶的 7 天预签名地址，知乎编辑器粘贴时把图片转存到自己的图床（作者用 my-toolbox 多次实际使用证实，2026-09-10 本项目真实草稿复验通过）。图片在插入编辑区时就在后台上传，知乎复制直接复用
+- 复制路径按平台分两条：复制到公众号时图片以 data URL 内嵌进剪贴板 HTML，这是 my-toolbox 日常使用验证过的做法；复制到知乎时剪贴板里放私有 OSS 桶的 24 小时预签名地址，知乎编辑器粘贴时把图片转存到自己的图床（作者用 my-toolbox 多次实际使用证实，2026-09-10 本项目真实草稿复验通过）。图片在插入编辑区时就在后台上传，知乎复制直接复用
 - 预览放在带 `sandbox` 的 `iframe` 里渲染，与页面样式隔离、不执行脚本；预览与复制使用同一份 core 输出
 - 页面视觉：纯白底、墨色文字、朱砂强调色，品牌标识是红底白字的「锦章」双字印章；首版视觉提案在 `prototypes/web-v1`，结构与细节以线上实现为准
 - 选 Next.js 而不是纯静态构建的理由：中转接口必须在服务端做，密钥不能进前端；网页版后续的服务端能力在同一代码库里加，不用迁移。代价是需要 Node 运行时来部署
@@ -49,7 +49,7 @@
 |---|---|
 | `localStorage` `jinzhang.document.v1` | 原文、标题、主题、当前平台、两个平台各自的固定内容设置 |
 | `localStorage` `jinzhang.previous-article.v1` | 上一稿（原文与标题） |
-| `localStorage` `jinzhang-transit-cache` | 知乎中转地址缓存，见 4.2 |
+| `localStorage` `jinzhang.transit-cache.v2` | 知乎中转地址缓存，见 4.2 |
 | IndexedDB `jinzhang-assets` | 图片：`refs`（引用 → 内容哈希）与 `blobs`（内容哈希 → 图片），见 4.1 |
 
 - 首次打开（本浏览器没有保存过文档）与清除本地数据之后，编辑区是示例稿：一份常用 Markdown 语法速览，标题「把写作还给写作」，配图 `/sample-cover.jpg` 按当前站点地址拼接，本地与线上都能显示。新建文章是空白
@@ -106,7 +106,7 @@ core 定义 `ImageStore` 接口：`put(image, ctx)` 收到一张图片的引用�
 | 平台 | 行为 | 依据 |
 |---|---|---|
 | 公众号 | 规范化后编码为 `data:image/...;base64,...` 写进 `src`，不经过中转桶，也不等待后台上传 | my-toolbox 的公众号复制就是这条路，作者日常使用验证过粘贴后图片保留 |
-| 知乎 | 按规范化后内容的 SHA-256 查中转缓存，命中则复用地址；未命中经 4.3 的两个接口上传，取得预签名地址。缓存同时存内存与 `localStorage`，条目保留 6 天（比 7 天链接提前一天失效），过期后从本地原图重新上传。当前正文引用的图片上传完成前，知乎复制按钮不可用 | my-toolbox 的知乎路径就是先把图片换成公网地址再复制；2026-09-10 真实知乎草稿里中转图片全部转存到知乎图床 |
+| 知乎 | 按规范化后内容的 SHA-256 查中转缓存，命中则复用地址；未命中经 4.3 的两个接口上传，取得预签名地址。缓存同时存内存与 `localStorage`，条目保留 20 小时（比 24 小时的读取地址提前 4 小时失效），过期后从本地原图重新上传；旧键 `jinzhang-transit-cache` 里按 6 天写入的条目不再读取，访问缓存时删除。当前正文引用的图片上传完成前，知乎复制按钮不可用 | my-toolbox 的知乎路径就是先把图片换成公网地址再复制；2026-09-10 真实知乎草稿里中转图片全部转存到知乎图床 |
 
 - 远程图片：公众号路径先在浏览器里读取（不带凭证与来源页，12MB 以内）转成 data URL，跨域读不到时保留原地址；知乎路径直接保留原地址，由知乎编辑器抓取。两种保留都给 `IMAGE_REMOTE_KEPT` 提示「粘贴后请在平台里核对」
 - 动图取首帧并提示；SVG 先检查不含脚本与外部资源，再栅格化，失败则指出是哪一张
@@ -115,13 +115,13 @@ core 定义 `ImageStore` 接口：`put(image, ctx)` 收到一张图片的引用�
 
 ### 4.3 中转桶与两个接口
 
-- 桶：阿里云 OSS 专用私有桶（生产为北京地域的 `jinzhang-md`），私有读写、禁止匿名列表、关闭版本控制；`transit/` 前缀设 7 天生命周期删除；CORS 只放行本站 Origin 的 POST 与 GET（生产 `https://jinzhang.ink`，另保留本地开发 Origin）。应用凭证只授予 `transit/` 前缀的读、写、删。未通过校验的对象不会成为可访问图片
+- 桶：阿里云 OSS 专用私有桶（生产为北京地域的 `jinzhang-md`），私有读写、禁止匿名列表、关闭版本控制；`transit/` 前缀设 1 天生命周期删除（OSS 每天北京时间 8 点执行，对象在上传后 1 到 3 天之间删除，不早于 24 小时）；CORS 只放行本站 Origin 的 POST 与 GET（生产 `https://jinzhang.ink`，另保留本地开发 Origin）。应用凭证只授予 `transit/` 前缀的读、写、删。未通过校验的对象不会成为可访问图片
 - 对象键：`transit/<YYYYMMDD>/<随机 UUID>.<png|jpg>`
 - `POST /api/transit/sign`：请求 `{ mime, size }`，只接受 `image/jpeg`、`image/png`，大小 1 字节到 10MB。返回 `{ url, fields, ticket, expiresAt }`：`fields` 是 OSS 表单直传（PostObject）的 V4 签名字段，策略绑定桶、对象键、`Content-Type`、`x-oss-forbid-overwrite: true`、`success_action_status: 201` 与精确的 `content-length-range [size, size]`，5 分钟过期；`ticket` 是服务端签名的票据（对象键、大小、类型与过期时间，HMAC-SHA256），供 `complete` 核对。浏览器拿 `fields` 直传 OSS，服务端不经手图片字节
-- `POST /api/transit/complete`：请求 `{ ticket }`。核对票据签名与过期；HEAD 对象，大小或类型与票据不符则删除并拒绝；再下载对象，校验魔数是 JPEG 或 PNG、像素不超过 4000 万、sharp 能完整解码，不通过则删除并拒绝。全部通过返回 7 天有效的 V4 预签名 GET 地址（ali-oss `signatureUrlV4`，签名只对 GET 有效）。网络故障不当作文件损坏，不删除对象
+- `POST /api/transit/complete`：请求 `{ ticket }`。核对票据签名与过期；HEAD 对象，大小或类型与票据不符则删除并拒绝；再下载对象，校验魔数是 JPEG 或 PNG、像素不超过 4000 万、sharp 能完整解码，不通过则删除并拒绝。全部通过返回 24 小时有效的 V4 预签名 GET 地址（ali-oss `signatureUrlV4`，签名只对 GET 有效）。网络故障不当作文件损坏，不删除对象
 - 两个接口共用的约束：请求头 `Origin` 必须等于 `JINZHANG_ORIGIN`，否则 403；只收 JSON，请求体不超过 4KB；中转未配置返回 503 `TRANSIT_NOT_CONFIGURED`；其他异常返回 502 `TRANSIT_UNAVAILABLE`；响应不缓存。OSS 密钥与票据密钥只在服务端环境变量里
 - 限流与容量在网关做，不写业务代码（生产配置见 [deployment.md](../../deployment.md)）：两个接口按 IP 共用每分钟 60 次、滚动 24 小时 1000 次上限，超出返回 429；`complete` 后端最多同时完整解码两张图，排队上限 8、最多等 5 秒；入口请求体上限 8KB。计数在网关内存里，重启清零，不用于计费
-- 说明文案分开写两件事：链接 7 天后失效；桶内对象按生命周期规则清理，清理任务按周期执行，不承诺到期那一刻所有副本已删除
+- 说明文案分开写两件事：链接 24 小时后失效；桶内对象按生命周期规则清理，清理任务按周期执行，不承诺到期那一刻所有副本已删除
 - 代码结构：`lib/transit/service.ts` 是与 Next.js 无关的标准 `(Request) => Promise<Response>` 处理器与 `ObjectStore` 接口，`lib/transit/oss.ts` 是 ali-oss 适配，路由文件只做挂载
 
 ## 5. 剪贴板
@@ -227,3 +227,4 @@ core 定义 `ImageStore` 接口：`put(image, ctx)` 收到一张图片的引用�
 - 2026-09-10 按用户授权落实交互审查建议：固定内容按开头结尾分组、新建与上一稿恢复、长文同步和点击定位、窄屏编辑预览切换；预览定位属性与复制内容分离。来源 Issue #5。
 - 2026-09-10 按手机模式留白反馈：手机画布改为 420px，预览栏随画布收窄，窄画布内边距降为 16px。来源 Issue #5。
 - 2026-09-30 按线上版本 `4d312c0` 同步：补门户首页的实际结构与入口注入规则、`/api/health`、排版页三栏与响应式布局、本地存储与示例稿（首次打开与清除后为示例、示例升级规则）；数据流改为实际接口与 `CopyImageStore`，补编辑期间保留上一帧与复制等待最新排版；插图即后台上传不分平台、原生撤销与拖放落点；中转接口补 Origin 校验、精确大小、完整解码与网关限流；剪贴板补按钮状态、失败原因与超时；预览补 CSP、宽度与动效、同步定位；固定内容改为实际样式与字段，注明不做变量；工程与部署改为线上实际；验证清单加现状，待实测更新并关闭「知乎抓取预签名地址」；新增第 13 节记录与需求文档的三处差异。来源 issue #5、#7、#9
+- 2026-09-30 按用户决定把知乎中转保留期从 7 天缩短为 1 天：`transit/` 生命周期改为 1 天，读取地址改为 24 小时，浏览器中转缓存改为 20 小时并换用新键 `jinzhang.transit-cache.v2`，旧键条目不再复用。来源 [issue #14](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/14)

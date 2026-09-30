@@ -51,16 +51,26 @@ export async function fetchBytes(url: string, signal: AbortSignal) {
   return bytes;
 }
 // 同一张图在插入、切平台及复制时共用中转结果；过期后由本地原图重新上传。
+// 缓存 20 小时，早于 24 小时的读取地址失效；旧键条目按 6 天写入，对象可能已删除，不再读取。
+const TRANSIT_CACHE = 'jinzhang.transit-cache.v2';
+const LEGACY_TRANSIT_CACHE = 'jinzhang-transit-cache';
+const TRANSIT_CACHE_MS = 20 * 3600_000;
 const transitPending = new Map<string, Promise<PlacedImage>>();
 const transitSaved = new Map<string, { src: string; expires: number }>();
 export function clearTransitCache() {
   transitSaved.clear();
-  if (typeof localStorage !== 'undefined') localStorage.removeItem('jinzhang-transit-cache');
+  if (typeof localStorage === 'undefined') return;
+  localStorage.removeItem(TRANSIT_CACHE);
+  localStorage.removeItem(LEGACY_TRANSIT_CACHE);
+}
+function savedTransits() {
+  localStorage.removeItem(LEGACY_TRANSIT_CACHE);
+  return JSON.parse(localStorage.getItem(TRANSIT_CACHE) || '{}');
 }
 async function transitCached(key: string, upload: () => Promise<PlacedImage>) {
   if (!transitSaved.has(key)) {
     try {
-      const saved = JSON.parse(localStorage.getItem('jinzhang-transit-cache') || '{}')[key];
+      const saved = savedTransits()[key];
       if (saved?.src && saved.expires > Date.now()) transitSaved.set(key, saved);
     } catch {
       /* 存储不可用时仍可上传与复制。 */
@@ -72,12 +82,12 @@ async function transitCached(key: string, upload: () => Promise<PlacedImage>) {
   if (pending) return pending;
   const task = upload()
     .then((placed) => {
-      transitSaved.set(key, { src: placed.src, expires: Date.now() + 6 * 86400_000 });
+      transitSaved.set(key, { src: placed.src, expires: Date.now() + TRANSIT_CACHE_MS });
       try {
-        const saved = JSON.parse(localStorage.getItem('jinzhang-transit-cache') || '{}');
+        const saved = savedTransits();
         saved[key] = transitSaved.get(key);
         for (const k of Object.keys(saved)) if (saved[k].expires <= Date.now()) delete saved[k];
-        localStorage.setItem('jinzhang-transit-cache', JSON.stringify(saved));
+        localStorage.setItem(TRANSIT_CACHE, JSON.stringify(saved));
       } catch {
         /* 内存缓存仍可复用。 */
       }

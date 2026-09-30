@@ -1,7 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import sharp from 'sharp';
 export const MAX_UPLOAD = 10 * 1024 * 1024;
-export const READ_SECONDS = 7 * 24 * 60 * 60;
+export const READ_SECONDS = 24 * 60 * 60;
 export interface TransitConfig {
   origin: string;
   bucket: string;

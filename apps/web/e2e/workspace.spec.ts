@@ -255,15 +255,34 @@ test('光标插图即时上传，失败可重试，切平台与刷新复用图�
   await page.getByRole('button', { name: '复制到知乎' }).click();
   await expect(page.getByRole('button', { name: '已复制 ✓' })).toBeVisible();
   expect(uploads).toBe(2);
-  await page.evaluate(() => {
-    const saved = JSON.parse(localStorage.getItem('jinzhang-transit-cache') || '{}');
-    for (const record of Object.values(saved) as { expires: number }[]) record.expires = 0;
-    localStorage.setItem('jinzhang-transit-cache', JSON.stringify(saved));
+  const remaining = await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('jinzhang.transit-cache.v2') || '{}');
+    const records = Object.values(saved) as { expires: number }[];
+    const left = Math.max(...records.map((record) => record.expires - Date.now()));
+    for (const record of records) record.expires = 0;
+    localStorage.setItem('jinzhang.transit-cache.v2', JSON.stringify(saved));
+    return left;
   });
+  // 缓存要早于 24 小时的读取地址失效。
+  expect(remaining).toBeGreaterThan(0);
+  expect(remaining).toBeLessThanOrEqual(20 * 3600_000);
   await page.reload();
   await page.getByRole('button', { name: '复制到知乎' }).click();
   await expect(page.getByRole('button', { name: '已复制 ✓' })).toBeVisible();
   expect(uploads).toBe(3);
+  // 旧键里按 6 天写入的条目即使未到期也不复用，读取时清除。
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'jinzhang-transit-cache',
+      localStorage.getItem('jinzhang.transit-cache.v2')!,
+    );
+    localStorage.removeItem('jinzhang.transit-cache.v2');
+  });
+  await page.reload();
+  await page.getByRole('button', { name: '复制到知乎' }).click();
+  await expect(page.getByRole('button', { name: '已复制 ✓' })).toBeVisible();
+  expect(uploads).toBe(4);
+  expect(await page.evaluate(() => localStorage.getItem('jinzhang-transit-cache'))).toBeNull();
   await editor.click();
   await expect(editor).toHaveCSS('outline-style', 'none');
   await page.getByRole('textbox', { name: '文章标题' }).click();
