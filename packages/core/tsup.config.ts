@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup';
+// 两份配置并行构建，不用 tsup 的 clean（会删掉另一份的产物），清理放在 build 脚本里。
 export default defineConfig([
   {
     entry: {
@@ -9,7 +10,6 @@ export default defineConfig([
     },
     format: ['esm', 'cjs'],
     dts: true,
-    clean: true,
     noExternal: [/.*/],
     platform: 'browser',
     target: 'es2022',

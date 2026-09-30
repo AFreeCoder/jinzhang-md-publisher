@@ -1,0 +1,39 @@
+name: Obsidian plugin release
+# 只在推送与 apps/obsidian/manifest.json 版本号相同、不带 v 的 tag 时运行；本仓库的 GitHub Release 只用于插件。
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 校验 tag、manifest.json 与 versions.json 一致
+        run: |
+          tag="$GITHUB_REF_NAME"
+          version=$(node -p "require('./apps/obsidian/manifest.json').version")
+          min=$(node -p "require('./apps/obsidian/manifest.json').minAppVersion")
+          mapped=$(node -p "require('./apps/obsidian/versions.json')[process.argv[1]] ?? ''" "$tag")
+          if [ "$tag" != "$version" ]; then echo "tag $tag 与 manifest.json 的版本 $version 不一致"; exit 1; fi
+          if [ "$mapped" != "$min" ]; then echo "versions.json 缺少 $tag，或 minAppVersion 与 manifest.json 不一致"; exit 1; fi
+      - run: pnpm check
+      - name: 创建 Release 并上传三件套
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          case "$GITHUB_REF_NAME" in *-*) flags="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" \
+            apps/obsidian/dist/main.js apps/obsidian/dist/manifest.json apps/obsidian/dist/styles.css \
+            --title "锦章 Obsidian 插件 $GITHUB_REF_NAME" \
+            --notes "用 BRAT 安装或更新：在 BRAT 里添加仓库 AFreeCoder/jinzhang-md-publisher。" $flags
