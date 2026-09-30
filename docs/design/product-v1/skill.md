@@ -135,7 +135,7 @@ push <file> --platform wechat,zhihu --yes --digest <值> --json
 ## 8. 网络与代理
 
 - 公众号传输优先级：本次 `--proxy` → `config.wechat.proxy` → `HTTPS_PROXY` → 直连；出口探测、token、正文图、封面、草稿请求走同一传输，摘要里显示生效出口。知乎默认直连，只有显式 `--proxy` 才走代理
-- 代理支持 `http://`、`https://`、`socks5://`，由 `./node` 宿主用 undici 的 `ProxyAgent` 与 `fetch-socks` 显式接入。Node 本身可以用 `NODE_USE_ENV_PROXY` 读环境代理，这里仍用显式传输，是为了让优先级、出口与探测可预测
+- 代理支持 `http://`、`https://`、`socks5://`，由命令行包里的宿主实现用 undici 的 `ProxyAgent` 与 `fetch-socks` 显式接入。Node 本身可以用 `NODE_USE_ENV_PROXY` 读环境代理，这里仍用显式传输，是为了让优先级、出口与探测可预测
 - 超时：token 与草稿接口 30 秒，图片上传 60 秒，远程图片下载 20 秒；创建草稿不做通用自动重试
 
 ## 9. 复制与图片交付
@@ -190,7 +190,7 @@ SKILL.md 结构：
 
 ## 12. 工程
 
-- `packages/cli/`，commander 解析命令，tsup 打包 JS 入口；sharp 作为运行时依赖保留平台二进制，主题、模板样例、预览壳资源进发布包；依赖 `@jinzhang/core` 的 `./node` 宿主实现（`PublishHost`）
+- `packages/cli/`，commander 解析命令，tsup 打包 JS 入口；sharp 作为运行时依赖保留平台二进制，主题、模板样例、预览壳资源进发布包；依赖 `@jinzhang/core` 的 `./publish`（投递适配器）与 `./node`（配置、凭证、状态、模板的文件读写，与插件共用）；`PublishHost` 的命令行实现在命令行包里，包括 sharp 编解码与 Node 代理
 - 二维码用 `qrcode` 生成终端字符画与 PNG
 - `engines` 定 Node 22 以上，CI 在 22 与 24 上跑；以 24 为首测发布基线
 - 测试：命令层用 Vitest 跑 `--json` 输出快照，加真实分支：两次调用之间内容改变、部分平台阻塞、平台已返回 id 后回读失败、创建请求中断、复制上传成功但剪贴板失败；投递用 mock 的 `http` 宿主回放公众号与知乎的响应样本（含 40164、40007、45002、401、10001），样本入库前把 token、cookie、`media_id` 换成占位符；发布验证针对真正的 npm 包在仓库外安装，覆盖中文与含空格的路径、sharp 平台依赖、模板与预览资源
@@ -232,3 +232,4 @@ SKILL.md 结构：
 - 2026-09-09 对齐合并后的 architecture.md：`copy` 的 `text/plain` 改为成品可见文本；`check` 摘要拆为可见字数与接口 HTML 字符数；宿主实现按 `PublishHost` 表述。过程记录转到 issue #6
 - 2026-09-10 合并 Codex 评审（issue #6）：`push --dry-run` 出 `digest`、`--yes --digest` 执行、`STATE_CHANGED`；`check` 去掉 `--strict`、加 `--offline` 与 `mode`、`unverified`、`effects`、`readiness`；`partial` 与退出码 5、参数错误 64、逐平台 `verification`、`nextActions`；`drafts bind` 与 `drafts remote`；多平台逐平台阻塞；需求 20 映射改为正常 `push`；预览按平台与内容哈希缓存并内嵌图片；Node 22 以上、24 首测，sharp 保留为运行时依赖，别名不预先承诺；`config edit` 代替本机表单。按「一期先可用」收窄：macOS 之外不做富文本剪贴板，知乎复制要求登录，不接中转服务，不做跨进程投递互斥
 - 2026-09-10 评审收敛，状态改为已评审，沉淀到仓库
+- 2026-09-30 按插件设计定稿（issue #12）同步：`./node` 只放与插件共用的文件读写，sharp 编解码与 undici 代理放在命令行包。排期上插件先做（issue #4 快照 5），`./publish` 与 `./node` 随插件落地，命令行实现时直接复用
