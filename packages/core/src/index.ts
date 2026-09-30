@@ -21,7 +21,6 @@ import type {
   PreparedArticle,
   RenderResult,
   ThemeId,
-  ImageStore,
   Warning,
   ImageRef,
 } from './types';
@@ -30,8 +29,10 @@ import { inlineTheme } from './theme';
 import { safeStyle } from './sanitize-style';
 import { compactStyles } from './compact-styles';
 import { stripFrontmatter } from './frontmatter';
+import { escapeHtml } from './place';
 export * from './types';
 export { themes } from './theme';
+export { escapeHtml, placeImages } from './place';
 const lowlight = createLowlight(common);
 const schema: Options = {
   ...defaultSchema,
@@ -569,24 +570,6 @@ export function render(
       imageCount: prepared.images.length,
     },
   };
-}
-export function escapeHtml(s: string) {
-  return s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  );
-}
-export async function placeImages(result: RenderResult, store: ImageStore) {
-  let html = result.html;
-  for (const image of result.images) {
-    const placed = await store.put(image, { platform: result.platform, role: 'body' });
-    const attrs = Object.entries(placed.attrs || {})
-      .filter(([key]) => /^data-[a-z-]+$/.test(key))
-      .map(([k, v]) => ` ${k}="${escapeHtml(v)}"`)
-      .join('');
-    html = html.split(`src="jz-img:${image.id}"`).join(`src="${escapeHtml(placed.src)}"${attrs}`);
-  }
-  return { html, bytes: new TextEncoder().encode(html).byteLength, text: result.text };
 }
 
 export { replaceImageReference } from './references';

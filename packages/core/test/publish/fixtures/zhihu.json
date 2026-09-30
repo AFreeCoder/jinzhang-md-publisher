@@ -1,0 +1,52 @@
+{
+  "_comment": "知乎网页端接口响应样本，结构照 Zhihu on Obsidian 源码与知乎网页端请求整理；用户 id、图片 id、上传凭据、草稿 id 等已换成占位符。",
+  "me": {
+    "id": "<USER_ID>",
+    "url_token": "<URL_TOKEN>",
+    "name": "示例作者",
+    "avatar_url": "https://picx.zhimg.com/<AVATAR>_l.jpg",
+    "headline": "",
+    "type": "people",
+    "user_type": "people",
+    "is_org": false
+  },
+  "me_anonymous": { "id": "0", "name": "知乎用户", "type": "people" },
+  "unauthorized": {
+    "error": { "code": 100, "message": "请求头或参数封装错误", "name": "AuthenticationInvalidRequest" }
+  },
+  "risk_control": { "error": { "code": 10003, "message": "请求参数异常，请升级客户端后重试" } },
+  "risk_control_10001": { "error": { "code": 10001, "message": "请求异常，请稍后再试" } },
+  "image_new": {
+    "upload_vendor": "aliyun",
+    "upload_file": { "state": 2, "image_id": "<IMAGE_ID>", "object_key": "v2-<MD5>" },
+    "upload_token": {
+      "access_id": "<ACCESS_ID>",
+      "access_key": "<ACCESS_KEY>",
+      "access_token": "<SECURITY_TOKEN>",
+      "access_timestamp": 1759200000
+    }
+  },
+  "image_existing": {
+    "upload_vendor": "aliyun",
+    "upload_file": { "state": 1, "image_id": "<IMAGE_ID>", "object_key": "v2-<MD5>" }
+  },
+  "image_processing": { "status": "processing", "original_hash": "v2-<MD5>" },
+  "image_success": {
+    "status": "success",
+    "src": "https://pic1.zhimg.com/v2-<MD5>_b.png",
+    "original_src": "https://pic1.zhimg.com/v2-<MD5>",
+    "watermark": "original",
+    "watermark_src": "https://pic1.zhimg.com/v2-<MD5>",
+    "original_hash": "v2-<MD5>",
+    "watermark_hash": "v2-<MD5>"
+  },
+  "draft_created": {
+    "id": "<DRAFT_ID>",
+    "title": "<TITLE>",
+    "type": "article",
+    "url": "https://zhuanlan.zhihu.com/p/<DRAFT_ID>",
+    "author": { "id": "<USER_ID>", "name": "示例作者" }
+  },
+  "draft_not_found": { "error": { "code": 404, "message": "文章不存在或已删除" } },
+  "verification_page": "<!DOCTYPE html><html><head><title>安全验证 - 知乎</title></head><body></body></html>"
+}

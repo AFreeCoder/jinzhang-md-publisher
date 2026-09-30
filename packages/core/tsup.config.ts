@@ -1,7 +1,12 @@
 import { defineConfig } from 'tsup';
 export default defineConfig([
   {
-    entry: ['src/index.ts', 'src/preview.ts', 'src/browser.ts'],
+    entry: {
+      index: 'src/index.ts',
+      preview: 'src/preview.ts',
+      browser: 'src/browser.ts',
+      publish: 'src/publish/index.ts',
+    },
     format: ['esm', 'cjs'],
     dts: true,
     clean: true,
