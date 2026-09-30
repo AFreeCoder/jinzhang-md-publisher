@@ -1,0 +1,48 @@
+{
+  "_comment": "公众号接口响应样本，按官方文档与 my-toolbox 实际响应的结构整理；token、media_id、rid 等已换成占位符。",
+  "ipify": { "ip": "203.0.113.7" },
+  "stable_token": { "access_token": "<ACCESS_TOKEN>", "expires_in": 7200 },
+  "draft_count": { "total_count": 3 },
+  "uploadimg": { "url": "http://mmbiz.qpic.cn/mmbiz_png/<MEDIA_PATH>/0?wx_fmt=png" },
+  "add_material": {
+    "media_id": "<COVER_MEDIA_ID>",
+    "url": "http://mmbiz.qpic.cn/mmbiz_jpg/<COVER_PATH>/0?wx_fmt=jpeg",
+    "item": []
+  },
+  "draft_add": { "media_id": "<DRAFT_MEDIA_ID>", "item": [] },
+  "draft_update": { "errcode": 0, "errmsg": "ok" },
+  "draft_get": {
+    "news_item": [
+      {
+        "title": "<TITLE>",
+        "author": "",
+        "digest": "<DIGEST>",
+        "content": "<CONTENT>",
+        "content_source_url": "",
+        "thumb_media_id": "<COVER_MEDIA_ID>",
+        "show_cover_pic": 0,
+        "need_open_comment": 0,
+        "only_fans_can_comment": 0,
+        "url": "http://mp.weixin.qq.com/s?__biz=<BIZ>&tempkey=<TEMPKEY>",
+        "thumb_url": "http://mmbiz.qpic.cn/mmbiz_jpg/<COVER_PATH>/0?wx_fmt=jpeg"
+      }
+    ],
+    "create_time": 1759200000,
+    "update_time": 1759200000
+  },
+  "ip_not_whitelisted": {
+    "errcode": 40164,
+    "errmsg": "invalid ip 198.51.100.23 ipv6 ::ffff:198.51.100.23, not in whitelist rid: <RID>"
+  },
+  "invalid_media_id": { "errcode": 40007, "errmsg": "invalid media_id hint: [<HINT>] rid: <RID>" },
+  "content_too_long": {
+    "errcode": 45002,
+    "errmsg": "content size out of limit hint: [<HINT>] rid: <RID>"
+  },
+  "invalid_credential": {
+    "errcode": 40001,
+    "errmsg": "invalid credential, access_token is invalid or not latest hint: [<HINT>] rid: <RID>"
+  },
+  "invalid_appsecret": { "errcode": 40125, "errmsg": "invalid appsecret hint: [<HINT>] rid: <RID>" },
+  "no_permission": { "errcode": 48001, "errmsg": "api unauthorized hint: [<HINT>] rid: <RID>" }
+}
