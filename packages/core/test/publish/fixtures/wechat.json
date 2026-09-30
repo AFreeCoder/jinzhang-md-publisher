@@ -43,6 +43,9 @@
     "errcode": 40001,
     "errmsg": "invalid credential, access_token is invalid or not latest hint: [<HINT>] rid: <RID>"
   },
-  "invalid_appsecret": { "errcode": 40125, "errmsg": "invalid appsecret hint: [<HINT>] rid: <RID>" },
+  "invalid_appsecret": {
+    "errcode": 40125,
+    "errmsg": "invalid appsecret hint: [<HINT>] rid: <RID>"
+  },
   "no_permission": { "errcode": 48001, "errmsg": "api unauthorized hint: [<HINT>] rid: <RID>" }
 }

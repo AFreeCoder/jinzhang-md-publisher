@@ -65,13 +65,29 @@ export function template(source: string, values: Record<string, string>) {
     .map((line) => line.replace(/\{\{(\w+)\}\}/g, (_, key) => escapeHtml(value(key))))
     .join('\n');
 }
-async function parse(markdown: string, warnings: Warning[]): Promise<Root> {
+async function parse(markdown: string, warnings: Warning[], privateSyntax = false): Promise<Root> {
   const imageUrls = new Map<number, string>();
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkDirective)
     .use(() => (tree) => {
+      // 只看正文文字：代码块与行内代码里的 [[、> [! 是内容，不是编辑器私有写法。
+      if (privateSyntax) {
+        let found = false;
+        visit(tree, 'text', (node: any) => {
+          if (/\[\[/.test(node.value)) found = true;
+        });
+        visit(tree, 'blockquote', (node: any) => {
+          const first = node.children[0]?.children?.[0];
+          if (first?.type === 'text' && /^\[![\w-]+\]/.test(first.value)) found = true;
+        });
+        if (found)
+          warnings.push({
+            code: 'UNSUPPORTED_SYNTAX',
+            message: '编辑器私有语法将按普通文本显示，请改用标准 Markdown。',
+          });
+      }
       const definitions = new Map<string, string>();
       visit(tree, 'definition', (node: any) => {
         definitions.set(node.identifier, node.url);
@@ -176,14 +192,9 @@ export async function prepare(input: ArticleInput, opts: PrepareOptions): Promis
       message: '已忽略 frontmatter，文章信息由当前入口单独设置。',
     });
   }
-  if (/!?\[\[|^>\s*\[!/m.test(source))
-    warnings.push({
-      code: 'UNSUPPORTED_SYNTAX',
-      message: '编辑器私有语法将按普通文本显示，请改用标准 Markdown。',
-    });
   if (input.title && Array.from(input.title).length > 32)
     warnings.push({ code: 'TITLE_TOO_LONG', message: '标题超过 32 字，请在平台核对展示效果。' });
-  const body = await parse(source, warnings);
+  const body = await parse(source, warnings, true);
   const lineOffset = input.markdown.split('\n').length - source.split('\n').length;
   visit(body, 'element', (node) => {
     if (node.position)

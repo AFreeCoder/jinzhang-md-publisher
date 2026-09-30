@@ -47,7 +47,7 @@ pnpm test:e2e
 
 如本机已安装 Chrome，可用 `PLAYWRIGHT_CHANNEL=chrome pnpm test:e2e`，测试使用独立浏览器上下文，不操作个人浏览器资料。
 
-`pnpm check` 包含 TypeScript、Vitest、Next.js 生产构建、浏览器依赖边界及 ESM/CJS 输出一致性检查。端到端测试覆盖图片输入/恢复、即时上传与失败重试、两平台真实剪贴板载荷、权限失败重试复用、快速改稿、手动复制、新建与上一稿恢复、长文定位及窄屏切换。端到端中的 OSS 返回由隔离路由模拟，不代表真实云端上传验收。
+`pnpm check` 包含 TypeScript、Vitest、Next.js 生产构建、Obsidian 插件构建、浏览器依赖边界（插件产物不含 sharp 与 ali-oss）及 ESM/CJS 输出一致性检查。投递适配器用回放响应样本的 mock 宿主测试，不连真实平台。端到端测试覆盖图片输入/恢复、即时上传与失败重试、两平台真实剪贴板载荷、权限失败重试复用、快速改稿、手动复制、新建与上一稿恢复、长文定位及窄屏切换。端到端中的 OSS 返回由隔离路由模拟，不代表真实云端上传验收。
 
 ```sh
 pnpm build
@@ -58,11 +58,12 @@ pnpm --filter @jinzhang/web start
 
 ## 目录与范围
 
-- `packages/core`：共享解析、清理、平台规则、CSS 主题、图片接口、浏览器资源适配与预览壳；tsup 生成 ESM/CJS 及类型声明。
+- `packages/core`：共享解析、清理、平台规则、CSS 主题、图片接口、浏览器资源适配与预览壳；`./publish` 是公众号与知乎的投递适配器，`./node` 读写命令行与插件共用的配置目录 `~/.config/jinzhang/`（`JINZHANG_HOME` 可改）；tsup 生成 ESM/CJS 及类型声明。
 - `apps/web`：Next.js 门户、排版工作区、剪贴板流程与图片中转 API。
+- `apps/obsidian`：Obsidian 插件（桌面端）：右侧栏预览、推送到公众号与知乎草稿箱、复制、封面与设置页。`pnpm build:obsidian` 产出 `apps/obsidian/dist/` 下的 `main.js`、`manifest.json`、`styles.css`，复制到 vault 的 `.obsidian/plugins/jinzhang/` 即可本地试用；正式分发走 BRAT，推送与 `manifest.json` 版本相同的 tag 时由 `obsidian-release.yml` 创建 Release。
 - `fixtures`：标准测试文章与图片；主题/平台快照以此作为回归输入。
 - `prototypes/web-v1`：开发前可点击设计稿，保留原始截图作设计参考。
 
-本次只实现网页版所需的 core 与网页入口，不包含 CLI、Skill 或 Obsidian 插件实现。首页相应安装信息通过 `JINZHANG_SKILL_INSTALL`、`JINZHANG_OBSIDIAN_REPO` 在构建时注入；未发行时如实显示准备中。
+命令行与 Skill 尚未实现。首页相应安装信息通过 `JINZHANG_SKILL_INSTALL`、`JINZHANG_OBSIDIAN_REPO` 在构建时注入；未发行时如实显示准备中。
 
 真实平台验收与实施记录留在 [Issue #5](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/5)。原始技术结论见 `docs/design/product-v1/web.md` 和 `architecture.md`。需要真实 OSS 与平台测试资源才能验证签名链接抓取、平台保存后重开、Safari 大体积剪贴板等门禁；本地测试不代替这些结果。

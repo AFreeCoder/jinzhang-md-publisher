@@ -6,7 +6,13 @@ export * from './types';
 export * from './errors';
 export * from './host';
 export * from '../local';
-export { ImageCache, isPlatformHosted, isPrivateHost, type PreparedImage } from './images';
+export {
+  downloadImage,
+  ImageCache,
+  isPlatformHosted,
+  isPrivateHost,
+  type PreparedImage,
+} from './images';
 export {
   wechatPublisher,
   probeEgressIp,

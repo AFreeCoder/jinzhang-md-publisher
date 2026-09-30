@@ -12,7 +12,11 @@
   },
   "me_anonymous": { "id": "0", "name": "知乎用户", "type": "people" },
   "unauthorized": {
-    "error": { "code": 100, "message": "请求头或参数封装错误", "name": "AuthenticationInvalidRequest" }
+    "error": {
+      "code": 100,
+      "message": "请求头或参数封装错误",
+      "name": "AuthenticationInvalidRequest"
+    }
   },
   "risk_control": { "error": { "code": 10003, "message": "请求参数异常，请升级客户端后重试" } },
   "risk_control_10001": { "error": { "code": 10001, "message": "请求异常，请稍后再试" } },

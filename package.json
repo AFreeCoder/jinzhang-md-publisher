@@ -8,9 +8,10 @@
   "scripts": {
     "dev": "pnpm --filter @jinzhang/core build && pnpm --parallel --filter @jinzhang/core --filter @jinzhang/web dev",
     "build": "pnpm themes && pnpm --filter @jinzhang/core build && pnpm --filter @jinzhang/web build",
+    "build:obsidian": "pnpm --filter @jinzhang/obsidian build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm check:boundary && pnpm check:core-build",
+    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm build:obsidian && pnpm check:boundary && pnpm check:core-build",
     "themes": "node scripts/generate-themes.mjs",
     "test:e2e": "playwright test",
     "check:boundary": "node scripts/check-browser-boundary.mjs",
