@@ -7,6 +7,9 @@ COPY packages/core/package.json packages/core/package.json
 RUN pnpm install --frozen-lockfile
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# 首页是构建时预渲染的静态页，安装入口要在这里注入；未提供时如实显示「即将提供」。
+ARG JINZHANG_OBSIDIAN_REPO=
+ARG JINZHANG_SKILL_INSTALL=
 RUN pnpm build
 
 FROM node:24-bookworm-slim AS runtime

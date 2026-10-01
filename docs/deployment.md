@@ -14,7 +14,7 @@
 
 源码基线为 fetch 后的 `origin/main`。修改 Next.js / core 时运行 `pnpm check` 与 `PLAYWRIGHT_CHANNEL=chrome pnpm test:e2e`；Linux CI 使用 Chromium。原有 Check 工作流必须成功。
 
-`.github/workflows/image.yml` 在 main 或初次部署分支推送时构建 Linux 镜像，标签为 `ghcr.io/afreecoder/jinzhang:sha-<完整提交>`；生产按镜像 digest 部署。流水线仅构建，不自动改动服务器。
+`.github/workflows/image.yml` 在 main 或初次部署分支推送时构建 Linux 镜像，标签为 `ghcr.io/afreecoder/jinzhang:sha-<完整提交>`；生产按镜像 digest 部署。流水线仅构建，不自动改动服务器。首页是构建时预渲染的静态页，安装入口取自仓库的 Actions 变量 `JINZHANG_OBSIDIAN_REPO`、`JINZHANG_SKILL_INSTALL`（`gh variable set`），在镜像构建时注入，写在服务器 `.env.production` 里不生效；改变量后要重新构建镜像（`workflow_dispatch` 或下一次推送 main）再部署。
 
 发布时先备份部署目录（包含私密环境文件，备份保持 0700/0600）与 `/etc/caddy/Caddyfile`，记录旧镜像 digest，并把当前 `.env` 另存为 `.env.previous`。核对新镜像标签中的 revision 与候选提交一致，并先验证 HAProxy 配置：
 

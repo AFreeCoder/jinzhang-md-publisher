@@ -64,6 +64,6 @@ pnpm --filter @jinzhang/web start
 - `fixtures`：标准测试文章与图片；主题/平台快照以此作为回归输入。
 - `prototypes/web-v1`：开发前可点击设计稿，保留原始截图作设计参考。
 
-命令行与 Skill 尚未实现。首页相应安装信息通过 `JINZHANG_SKILL_INSTALL`、`JINZHANG_OBSIDIAN_REPO` 在构建时注入；未发行时如实显示准备中。
+命令行与 Skill 尚未实现。首页相应安装信息通过 `JINZHANG_SKILL_INSTALL`、`JINZHANG_OBSIDIAN_REPO` 在构建时注入（生产镜像取自仓库的 Actions 变量，见 `docs/deployment.md`）；未发行时如实显示准备中。
 
 真实平台验收与实施记录留在 [Issue #5](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/5)。原始技术结论见 `docs/design/product-v1/web.md` 和 `architecture.md`。需要真实 OSS 与平台测试资源才能验证签名链接抓取、平台保存后重开、Safari 大体积剪贴板等门禁；本地测试不代替这些结果。
