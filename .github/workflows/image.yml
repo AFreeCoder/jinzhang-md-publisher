@@ -22,6 +22,10 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/afreecoder/jinzhang:sha-${{ github.sha }}
-          build-args: REVISION=${{ github.sha }}
+          # 门户安装入口取自仓库的 Actions 变量，未设置时为空，首页显示「即将提供」。
+          build-args: |
+            REVISION=${{ github.sha }}
+            JINZHANG_OBSIDIAN_REPO=${{ vars.JINZHANG_OBSIDIAN_REPO }}
+            JINZHANG_SKILL_INSTALL=${{ vars.JINZHANG_SKILL_INSTALL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
