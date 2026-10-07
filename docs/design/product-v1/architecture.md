@@ -24,7 +24,7 @@
 
 否决：整包依赖 `@wenyan-md/core`（ESM-only、依赖锁版、无浏览器入口、单人维护、伪类选择器被静默跳过，见 issue #4 调研摘要）；基于 DOM 的管线（Node 侧要 jsdom，三端 DOM 行为有差异）；juice 内联；把渲染放在 Obsidian 自带的 MarkdownRenderer（与「一个 core」冲突，CLI 无法复用）。
 
-实现状态（2026-09-30，Obsidian 插件合入后）：
+实现状态（2026-10-07，少数派与公众号原生主题、本地形态固定内容按 my-toolbox 对齐后）：
 
 | 部分 | 状态 | 位置 |
 |---|---|---|
@@ -36,7 +36,8 @@
 | 共享文件读写 `./node`：配置、凭证、状态、模板、写锁（第 9 节） | 已实现，随插件合入 | `packages/core/src/node.ts`、`local.ts` |
 | `./browser` 里网页与插件共用的 data URL 归位（第 5 节） | 已实现，网页 `CopyImageStore` 的公众号分支已改为调用它 | `packages/core/src/browser.ts` 的 `DataUrlImageStore` |
 | Obsidian 插件 | 已实现，2026-09-30 合入；真实账号验收与首个 BRAT 发布待做 | `apps/obsidian`，见 [obsidian-plugin.md](obsidian-plugin.md) |
-| `:::card` 名片、`:::recent` 按平台的样式（第 6 节） | 未实现，等固定内容的调整结论 | 无 |
+| `:::card` 名片、本地形态的开头样式一与结尾样式一（第 6 节） | 已实现，2026-10-07 | `packages/core/src/wechat-html.ts`、`local.ts` 的 `localFixed` |
+| `:::recent` 按平台的样式（第 6 节） | 未实现，目前只输出为普通 `section` | 无 |
 | 命令行、skill | 未实现，复用 `./publish` 与 `./node` | 无 |
 
 其余各节按已实现的代码写实际接口；未实现的部分保持设计，在对应小节标出。
@@ -161,14 +162,14 @@ interface Warning { code: string; message: string; ref?: string }
 | 阶段 | 做什么 | 规则来源 |
 |---|---|---|
 | 1 规范化 | 去掉开头的 YAML frontmatter 并警告，只在内容能解析为映射（或全是注释）时才去掉，分隔线之间的正文与损坏的 YAML 保留；标题由壳传入（本地形态取文件名，网页取标题框），正文首个 H1 与标题相同（去首尾空白后）则删除；识别 `[[双链]]`、`![[嵌入]]`、`> [!note]` 这类编辑器私有写法，按普通文本处理并警告 | 需求 6.1、6.2；my-toolbox `articleDocument`；2026-09-11 评审第 5 项 |
-| 2 解析 | 正文与启用的开头、结尾模板各自用 remark-parse + gfm（表格、任务列表、删除线、脚注、自动链接）+ directive（内置样式块）解析；模板先做变量替换，缺变量的行整行删除。解析时另做四件事：按源位置记下每张图片的原始引用（含引用式定义），归位与补图都用它，不用解析后被百分号编码的地址；中文之间的软换行直接拼接，不留空格；裸网址末尾的中文句读不算进链接；样式块只认 `:::divider` 与 `:::recent`，其余按原文输出并警告。脚注标题为「注释」 | 需求功能 1；第 6 节；2026-09-11 评审第 4 项 |
+| 2 解析 | 正文与启用的开头、结尾模板各自用 remark-parse + gfm（表格、任务列表、删除线、脚注、自动链接）+ directive（内置样式块）解析；模板先做变量替换，缺变量的行整行删除。解析时另做四件事：按源位置记下每张图片的原始引用（含引用式定义），归位与补图都用它，不用解析后被百分号编码的地址；中文之间的软换行直接拼接，不留空格；裸网址末尾的中文句读不算进链接；样式块只认 `:::divider`、`:::recent` 与 `:::card`，其余按原文输出并警告。脚注标题为「注释」 | 需求功能 1；第 6 节；2026-09-11 评审第 4 项 |
 | 3 转 hast 并还原原始 HTML | remark-rehype 带 `allowDangerousHtml`，再用 `rehype-raw` 把原始 HTML 解析成普通节点，后续阶段才能处理其中的 `<img>` 与内层标签 | Codex 评审 A1 |
-| 4 允许列表清理 | 先过滤 `style` 属性：只留颜色、字号字重字形、行高、对齐、文字装饰、字距、内外边距、边框与圆角、宽高、换行这些 CSS 属性，值里出现 `url(`、`expression`、`javascript`、`var(`、`@`、反斜杠或尖括号的整条丢弃。再用 rehype-sanitize 的默认规则，额外允许图片的 `src`、`alt`、`title`，代码的 `language-*` 类，任意元素的 `title` 与 `style`；`src` 只允许 http、https、data、`jz-local` 协议。事件属性、`script`、`iframe`、`javascript:` 一律删除；清理前后不同则记 `HTML_STRIPPED`，脚注 id 前缀这类正常变化不算。受控组件（名片 `mp-common-profile` 及其外层 `section`）按字段白名单保留，随 `:::card` 实现 | Codex 评审 A1 |
-| 5 固定内容拼装 | 开头树、正文树、结尾树拼成一棵，开头与结尾分别包进 `section.jz-header`、`section.jz-footer`，主题据此着色；知乎侧模板里文字、图片、链接以外的元素由方言阶段的标签白名单统一剔除 | 第 6 节 |
+| 4 允许列表清理 | 先过滤 `style` 属性：只留颜色、字号字重字形、行高、对齐、文字装饰、字距、内外边距、边框与圆角、宽高、换行这些 CSS 属性，值里出现 `url(`、`expression`、`javascript`、`var(`、`@`、反斜杠或尖括号的整条丢弃。再用 rehype-sanitize 的默认规则，额外允许图片的 `src`、`alt`、`title`，代码的 `language-*` 类，任意元素的 `title` 与 `style`；`src` 只允许 http、https、data、`jz-local` 协议。事件属性、`script`、`iframe`、`javascript:` 一律删除；清理前后不同则记 `HTML_STRIPPED`，脚注 id 前缀这类正常变化不算。名片不走清理：`:::card` 先输出一个只带 `data-jz="card"` 的占位 `section`（清理规则只放行这一个取值），清理之后再由 core 按名片资料生成 `mp-common-profile` 及其外层 `section`；正文里手写的名片标签照常被清理 | Codex 评审 A1 |
+| 5 固定内容拼装 | 开头树、正文树、结尾树拼成一棵。网页版（缺省）把开头与结尾分别包进 `section.jz-header`、`section.jz-footer`，主题据此着色；本地形态传 `plainFixed`，不包容器，开头用模板自带的样式，结尾按正文排版。随后公众号把 `:::card` 占位换成名片，没有名片资料（缺公众号 ID 或名称）时去掉占位并记 `CARD_NOT_CONFIGURED`；知乎保留占位，交方言移除并记降级。知乎侧模板里文字、图片、链接以外的元素由方言阶段的标签白名单统一剔除 | 第 6 节 |
 | 6 图片收集 | 在拼好的树上遍历所有 `<img>`（含原始 HTML 写的），经 `AssetResolver` 解析来源，`src` 换成 `jz-img:<n>` 占位，解析不到的记 `IMAGE_MISSING`；封面取 `cover` 指定的引用（不在正文里时单独解析），否则取正文首图，固定内容里的图不算候选 | 第 5 节 |
 | 7 平台方言 | 结构变换：公众号见 4.1，知乎见 4.2。这一步不删 class、id，后面还要用 | |
-| 8 高亮与主题 | 从 `language-*` 提取语言；公众号用 lowlight（常用语言集）高亮，整棵树包进 `section.jz` 后做主题内联（第 7 节），`hljs-*` 配色写在主题里；随后给 `pre`、`table` 套横向滚动容器（4.1 第 4、5 条）。知乎只提取语言写进 `<pre lang>`，不高亮 | 第 7 节 |
-| 9 属性清理、压缩与统计 | 删除剩余的 `class`、`id`、`data-*`（知乎方言要求的 `data-draft-node`、`data-draft-type`、`data-size`、`data-numero`、`data-text`、`data-url` 例外；名片的属性随 `:::card` 定）；知乎再删全部 `style`。公众号只做语法层面的压缩：`0px` 写 `0`、能缩写的六位颜色缩写、纯黑改近黑，保留全部显式声明，不按继承删除（删了会被平台编辑器的默认样式覆盖，2026-09-11 评审第 7 项）；统计三种长度。`htmlChars` 超过 18000 给 `CONTENT_NEAR_LIMIT` 警告并附建议（换主题、拆分、减少图片），推送时达到 20000 由体检阻止；阈值定义在 core，壳决定是否展示 | my-toolbox `compactInlineStyles`；需求 8；Codex 评审 A2 |
+| 8 高亮与主题 | 从 `language-*` 提取语言；公众号用 lowlight（常用语言集）高亮，主题带 `codeDots` 时在 `pre` 最前面放红黄绿三个圆点，整棵树包进 `section.jz` 后做主题内联（第 7 节），`hljs-*` 配色写在主题里；内联之后去掉与根容器重复的文字声明（4.1 第 11 条），再给 `pre`、`table` 套横向滚动容器并把表格样式改写成属性（4.1 第 4、5 条）。知乎只提取语言写进 `<pre lang>`，不高亮 | 第 7 节；my-toolbox `applyTheme`、`makeWeChatDomCompatible` |
+| 9 属性清理、压缩与统计 | 删除剩余的 `class`、`id`、`data-*`（知乎方言要求的 `data-draft-node`、`data-draft-type`、`data-size`、`data-numero`、`data-text`、`data-url` 例外；名片及其外层 `section` 的类名与属性原样保留）；知乎再删全部 `style`。公众号只做语法层面的压缩：`0px` 写 `0`、能缩写的六位颜色缩写、纯黑改近黑，这一步不再删声明（按继承删除只在阶段 8 对文字节点做一次，链接、行内代码与高亮片段的显式样式始终保留，2026-09-11 评审第 7 项）；统计三种长度。`htmlChars` 超过 18000 给 `CONTENT_NEAR_LIMIT` 警告并附建议（换主题、拆分、减少图片），推送时达到 20000 由体检阻止；阈值定义在 core，壳决定是否展示 | my-toolbox `compactInlineStyles`；需求 8；Codex 评审 A2 |
 | 10 序列化 | hast-util-to-html；公众号输出根节点是一个 `<section>`；知乎删除标签间换行。`sourceLocations` 打开时先给元素加原文行号 | |
 
 预览与推送使用同一份 `RenderResult`，差别只在第 5 节图片归位时 `ImageStore` 的实现。`placeImages(result, store)` 负责把占位符换成 `ImageStore` 返回的地址与附加属性（只接受 `data-*`），返回归位后的 HTML、它的 UTF-8 字节数与可见文本，是复制、预览、推送三条路共用的最后一步。壳在调用 `prepare` 时记下 `version`，回调时版本已过期的结果丢弃。
@@ -179,16 +180,16 @@ interface Warning { code: string; message: string; ref?: string }
 
 1. 根节点：整篇包进一个 `section.jz`，容器样式由主题给，类名在阶段 9 删除；不出现 `<div>`，所有 `div` 改 `section`
 2. 标题：`h1` 到 `h6` 保留，样式内联；不做目录
-3. 列表：删除 `ul/ol` 直接子节点里的空白文本（微信保存时会把它们变成空 `li`）；`li` 里的 `p` 改 `span`；一级列表保留原生 `ul/ol`，二级及更深的列表扁平化为 `<section style="margin-left:1em">` 加文本符号。嵌套列表是真机验收项：微信会给嵌套列表额外加符号，手写符号在手机上出现过空圆点，两种现象都要用标准测试文章在草稿箱里核对后定版
-4. 代码块：`<pre>` 保留，外包一个可横向滚动的 `<section>`（滚动容器自成格式化上下文，主题给 `pre`、`table` 的外边距移到容器上，才能与前后段落正常合并）；行间换成 `<br>`，围栏末尾的换行不输出，行首空格换成 `&nbsp;`；等宽字体、不折行；高亮 class 换成内联颜色。微信保存后仍可能吞空格，这是平台侧问题，文案说明
-5. 表格：外包可横向滚动的 `<section>`（外边距同代码块，移到容器上）；`table` 写属性 `border=1`、`cellpadding=8`、`bgcolor=#ffffff`，最小宽度按列数 × 100px、不少于 280px；`table-layout: fixed` 与表头底色由主题内联
+3. 列表：删除 `ul/ol` 直接子节点里的空白文本（微信保存时会把它们变成空 `li`）；`li` 里的 `p` 改 `span`；嵌套列表保留原生 `ul/ol`，少数派与公众号原生主题按层级写明圆点（实心圆、空心圆、方块，有序列表为数字）。原先把二级及更深的列表扁平化成文本符号，2026-10-07 按用户要求改为与 my-toolbox 一致；嵌套列表在手机上的实际显示仍是真机验收项
+4. 代码块：`<pre>` 保留，外包一个可横向滚动的 `<section>`（滚动容器自成格式化上下文，主题给 `pre`、`table` 的外边距移到容器上，才能与前后段落正常合并）；行间换成 `<br>`，围栏末尾的换行不输出，行首空格换成 `&nbsp;`；等宽字体、不折行；高亮 class 换成内联颜色；主题带 `codeDots`（少数派、公众号原生）时顶部有红黄绿三个圆点，是 `pre` 里的第一个 `section`。微信保存后仍可能吞空格，这是平台侧问题，文案说明
+5. 表格：外包可横向滚动的 `<section>`（外边距同代码块，移到容器上）。逐格内联样式又长又重复，主题给单元格的样式不进成品：把边框宽度与颜色、内边距、表头底色、表头对齐读出来写成属性 `border`、`bordercolor`、`cellpadding`、`cellspacing=0` 与表头的 `bgcolor`、`align`，`tr/th/td` 自身不带 `style`（原始 HTML 里给单元格写的内联样式也一并去掉）；`table` 只留 `width:100%`、`border-collapse`、主题给的字号、`table-layout:fixed`、最小宽度（列数 × 140px）、文字颜色与折行规则；表格里的行内代码只留 `white-space:nowrap`。Markdown 写的列对齐（`align` 属性）保留，这一点比 my-toolbox 多
 6. 引用：`<blockquote>` 保留，样式内联
 7. 链接：公众号文章链接保留 `<a>`；其他链接也保留 `<a>` 不做处理，微信会去掉地址只留文字，文档说明。脚注引用输出单层 `<sup>[n]</sup>` 纯文本，不带锚点；文末脚注列表保留，标题为「注释」，去掉回到正文的回链
 8. 任务列表：`<input type="checkbox">` 会被过滤，换成 ☐ 与 ☑ 文本，后面只留一个空格；任务条目自身的列表圆点由主题去掉，同一列表里的普通条目不受影响
-9. 图片：`max-width: 100%`，块级居中；`src` 是占位符
-10. 中文标点：行内强调（`strong`、`em`、`span`）后紧跟的中文标点移进强调元素里，避免微信在标点前折行；链接与行内代码自带下划线、底色，标点留在元素外，不随之被装饰。中文之间的软换行直接拼接，不留空格（两个平台一致）
-11. 颜色：纯黑 `#000` 改近黑；根节点显式写 `color`，避免深色模式下整篇变色
-12. 属性清理在阶段 9 统一做，方言阶段不删 `class`；名片 `mp-common-profile` 及其外层 `section` 的属性原样保留（`:::card` 未实现，目前不会输出名片）
+9. 图片：块级居中，`src` 是占位符；外观由主题给。少数派与公众号原生主题下图片撑满正文宽度，带 8px 内衬、14px 圆角、细边框与阴影（与 my-toolbox 相同）；Mac 主题只限制最大宽度
+10. 中文标点：行内强调（`strong`、`em`、`span`）后紧跟的中文标点移进强调元素里，避免微信在标点前折行；链接与行内代码自带下划线、底色，标点留在元素外，不随之被装饰（my-toolbox 会把标点也移进链接、行内代码与代码高亮片段，这里有意不跟）。中文之间的软换行直接拼接，不留空格（两个平台一致）
+11. 颜色与继承：纯黑 `#000` 改近黑；根节点显式写 `color`，避免深色模式下整篇变色。主题内联后，`p`、`li`、`h1` 到 `h6`、`blockquote`、`span`（代码里的除外）上与根容器相同、且沿途没有被祖先改写的 `font-family`、`font-size`、`line-height`、`color` 不再重复声明，交给继承，用来压住成品长度；引用里的段落因为引用改了颜色，自己的颜色保留；标题的字号不删（浏览器给标题自带字号，删掉后 h5、h6 会缩成小字）
+12. 属性清理在阶段 9 统一做，方言阶段不删 `class`；名片 `mp-common-profile` 及其外层 `section`、内部的 `br` 是公众号编辑器识别的原生组件，类名与 `data-*` 原样保留
 13. 内联样式限制：主题 CSS 不得使用 `position`、`float`、`grid`、`flex`、`var()`、`calc()`、`url()` 与任何 `@` 规则；主题内联遇到即抛错，`pnpm check` 里的快照测试每次构建都会跑到，等同构建期检查
 
 ### 4.2 知乎方言
@@ -202,7 +203,7 @@ interface Warning { code: string; message: string; ref?: string }
 5. 图片：推送路径由知乎的 `ImageStore` 在归位时返回 `data-caption`、`data-size="normal"`、`data-rawwidth`、`data-rawheight`、`data-watermark`、`data-original-src`、`data-watermark-src` 这些属性（值来自知乎图片上传结果，见第 5 节与 8.2）；复制路径的 `ImageStore` 只给 `src`，`alt` 保留
 6. 脚注：`<sup data-draft-node="inline" data-draft-type="reference" data-numero="n" data-text="<脚注纯文本>" data-url="<脚注里第一个链接，没有则留空>">[n]</sup>`，文末不再输出脚注列表，知乎按这两个属性生成参考列表
 7. 任务列表同公众号处理；嵌套列表保留原生结构
-8. 公众号名片、合集卡片等平台组件整块移除并记降级；固定内容模板里知乎只允许文字、图片、链接，其余元素在拼装时剔除并警告
+8. 公众号名片（`:::card` 的占位）整块移除并记降级；固定内容模板里知乎只允许文字、图片、链接，其余元素由标签白名单剔除，体检给 `TEMPLATE_UNSUPPORTED` 警告
 9. 序列化时删除标签之间的换行符：知乎编辑器会把标签间的换行渲染成空行（Zhihu on Obsidian 与 Wechatsync 都为此做过修补）
 10. 相邻的 `pre` 之间插入一个 `<p><br></p>`：知乎保存草稿时会把相邻的代码块合并成一个（2026-09-10 真实草稿发现，修复后复验通过）
 
@@ -241,28 +242,44 @@ interface ImageStore {
 
 ## 6. 固定内容
 
-实现状态：模板变量替换（`template()`）、固定内容拼装、`:::divider` 与 `:::recent` 已实现，模板内容由壳经 `ArticleInput.templates` 传入；从配置目录读模板文件已随 `./node` 与插件实现；`:::card` 名片与按平台给 `:::recent` 套的样式未实现。网页版的固定内容是表单，不走本节的模板文件，见 [web.md](web.md) 第 7 节。
+实现状态：模板变量替换（`template()`）、固定内容拼装、`:::divider`、`:::recent`、`:::card` 与本地形态的组合规则（`localFixed`）已实现；按平台给 `:::recent` 套的样式未实现。网页版的固定内容是表单，不走本节的本地形态规则，见 [web.md](web.md) 第 7 节。
 
-- 配置目录 `templates/<platform>/header.md` 与 `footer.md`，内容是 Markdown，允许内嵌 HTML
+core 的通用机制（两种形态共用）：
+
+- 壳把开头、结尾两段模板经 `ArticleInput.templates` 传入，内容是 Markdown，允许内嵌 HTML
 - 变量语法 `{{title}}`、`{{date}}`（渲染当天，格式 `YYYY-MM-DD`）、`{{author}}`（来自 `config.author`）；行内任一变量缺值则整行不渲染；只读取 `config` 自有的字符串属性，值做 HTML 转义
 - 内置样式块用 remark-directive 的容器指令语法（`:::name` 起、`:::` 止，冒号与名称之间没有空格），core 内置渲染：
-  - `:::card` 公众号名片，字段来自 `config.wechat.card`（`mpId`、`nickname`、`headImg`、`signature`、`serviceType`、`verifyStatus`），输出 doocs 与 my-toolbox 共用的 `mp-common-profile` 结构（公众号编辑器识别名片的原生标签，见 4.1 第 12 条）；知乎侧整块移除
+  - `:::card` 公众号名片，资料由壳经 `PrepareOptions.card` 传入（`mpId`、`nickname`、`headImg`、`signature`、`serviceType`、`verifyStatus`），输出 doocs 与 my-toolbox 共用的 `mp-common-profile` 结构（公众号编辑器识别名片的原生标签，见 4.1 第 12 条）；缺公众号 ID 或名称时不输出并记 `CARD_NOT_CONFIGURED`；知乎侧整块移除并记降级。预览壳给名片画一个占位块（名称与简介），不进成品
   - `:::recent` 「往期文章」样式块，块内是一个链接列表（公众号放合集链接，知乎放专栏或汇总篇链接），core 按平台套样式；这是需求 15 在本地形态的落点。目前只输出为普通 `section`，按平台套样式待实现
   - `:::divider` 分隔线样式
-- 开关：`config.fixed.<platform>.header` 与 `.footer` 为布尔；单次推送可用参数临时关闭
-- 名片是否出现完全由模板决定，不做去重；接口提交后回读发现名片被过滤只给警告
+- 接口提交后回读发现名片被过滤只给警告（`CARD_FILTERED`）
+
+本地形态（插件与命令行）的组合规则，2026-10-07 按用户要求改为与 my-toolbox 一致，由 `localFixed(platform, config, footers, today)` 统一给出开关、两段模板、变量与名片资料，壳原样交给 `prepare` 并带上 `plainFixed`：
+
+| 平台 | 组合 | 内容 |
+|---|---|---|
+| 公众号 | 开头样式一 → 正文 → 结尾样式一 | 开头样式一是 core 内置的一份模板，依次是顶部宣言（居中 13px）、名片、「作者｜…」、「出品｜公众号：…」（12px，公众号名称为蓝色）与一条分隔线，样式写在模板里、与主题无关，没有取值的行不显示。结尾样式一先是结尾 Markdown（按正文排版），再是名片 |
+| 知乎 | 正文 → 默认结尾 | 只有结尾 Markdown，没有开头，不带名片 |
+
+- 名片的位置由两种样式决定，没有独立的位置设置：两种样式都启用时各出现一张，都不启用时不插入；`config.wechat.card.enabled` 关闭或资料不全时两处都不带
+- 开关：`config.fixed.wechat.header`、`.footer` 是开头样式一、结尾样式一的开关，`config.fixed.zhihu.footer` 是知乎默认结尾的开关；开了开关但没有任何内容可显示（字段全空、结尾为空且没有名片）视为未启用。`config.fixed.zhihu.header` 保留字段但不生效。单次推送可用参数临时关闭
+- 字段来源：顶部宣言与出品公众号在 `config.wechat.start`，作者是 `config.author`，结尾 Markdown 在配置目录的 `templates/wechat/footer.md` 与 `templates/zhihu/footer.md`；`templates/<platform>/header.md` 不再读取
+- 开头样式一缺某个字段时体检给 `TEMPLATE_VARIABLE_MISSING`，提示里用设置页的字段名（顶部宣言、作者、出品公众号）
+- my-toolbox 还有一段两个平台共用的「通用结尾」，它的设置界面里没有入口，这里不做
 
 ## 7. 主题与内联
 
 用户裁定保留 CSS 文件方案（便于移植主题、承接二期自定义 CSS），但一期把引擎范围收窄到三套内置主题实际用到的语法，不做通用级联。以下为已实现的规则（`packages/core/src/theme.ts`）。
 
-- 主题文件 `packages/core/src/themes/<id>/theme.css`，选择器以 `.jz` 为根作用域（如 `.jz h2`、`.jz .task-list-item`）；代码高亮的 `hljs-*` 配色写在同一个文件里；主题的 id、名称、强调色与一句说明在 `theme.ts` 的 `themes` 列表里。一期三套：少数派（`sspai`，强调色 #ac493a）、公众号原生（`native`，#526d64）、Mac（`mac`，#51667d）
+- 主题文件 `packages/core/src/themes/<id>/theme.css`，选择器以 `.jz` 为根作用域（如 `.jz h2`、`.jz .task-list-item`）；代码高亮的 `hljs-*` 配色写在同一个文件里；主题的 id、名称、强调色、一句说明与代码块是否带圆点（`codeDots`）在 `theme.ts` 的 `themes` 列表里。一期三套：少数派（`sspai`，强调色 #d71a1b）、公众号原生（`native`，#07c160）、Mac（`mac`，#51667d），默认少数派
 - `pnpm themes` 把三份 CSS 生成为 `themes/generated.ts`，运行时从这里读，不在运行时读文件
 - 支持的语法：选择器支持类型、类、后代、子代、`:first-child`、`:last-child`、`:nth-child()` 及其组合，`::before`、`::after` 只能放在末尾；伪元素的 `content` 只能是字符串字面量，生成真实的 `<span>` 插到元素首或尾，其余声明作为它的内联样式
 - 不支持，遇到即抛错：属性选择器、兄弟选择器（`+`、`~`）、任何 `@` 规则，以及 `position`、`float` 和值里含 `var(`、`calc(`、`url(`、`grid`、`flex` 的声明。原设计允许的 `:root` 变量与 `url(data:image/svg+xml…)` 伪元素内容，三套主题都没用到，一期不支持
-- 内联算法：css-tree 解析规则，hast-util-select 在树上匹配（伪元素规则先匹配宿主元素再生成节点）；优先级按（`!important`，特异度，源顺序）排序，特异度 = 类与伪类个数 × 100 + 类型个数；元素原有的内联 `style`（来自清理后的原始 HTML）高于非 `!important` 的主题规则。纯黑在内联时改为近黑 `#292c29`
-- 三套主题的结构保持一致，只在强调色、行内代码配色与 Mac 的深色代码块上不同；改一套要同步另外两套，再跑 `pnpm themes`
-- 主题回归靠 core 的快照测试：三套主题的样例，以及标准文章在两平台下的输出
+- 内联算法：css-tree 解析规则，hast-util-select 在树上匹配（伪元素规则先匹配宿主元素再生成节点）；优先级按（`!important`，特异度，源顺序）排序，特异度 = 类与伪类个数 × 100 + 类型个数；元素原有的内联 `style`（来自清理后的原始 HTML）是作者明确写下的，高于主题规则，包括主题里的 `!important`。主题里的 `!important` 原样带到成品，用来压住平台编辑器自带的样式。纯黑在内联时改为近黑 `#292c29`
+- 少数派与公众号原生两套在 2026-10-07 按用户要求改成与 my-toolbox 的同名主题（`sspai`、`wechat`）一致：容器、标题、段落、强调、链接、列表、引用、行内代码、代码块、分隔线、图片与表格的取值逐项照搬，连同它对所有主题统一加的规则（按层级的列表圆点、引用首末段不叠外边距、标题里的强调与链接跟随标题颜色、GitHub 浅色高亮配色、图片外框）。两套结构相同，只在配色、字号与少数派二级标题的左边线上不同，改一套要对照另一套。Mac 主题保持原来的观感，只跟着方言的结构变化（原生嵌套列表、表格属性）补了两条规则
+- 与 my-toolbox 有意不同的地方：h5、h6 沿用 h4 的样式（my-toolbox 没有定义，落回浏览器默认小字）；任务列表的 ☐ ☑ 与脚注是锦章自己的处理；标点规则见 4.1 第 10 条；表格保留列对齐；原始 HTML 的内联样式高于主题
+- 字体名在主题里不加引号（引号写进 `style` 属性要转义成实体，每个行内代码都会多出十来个字符）；单元格的样式只作为表格属性的来源，见 4.1 第 5 条
+- 主题回归靠 core 的快照测试：三套主题的样例，以及标准文章在两平台下的输出。与 my-toolbox 的对齐在 2026-10-07 用真实 Chrome 逐元素核对过（两边成品放进同一页面，比较 50 项计算样式与位置尺寸），方法与结果记在 issue #12
 - 二期的自定义 CSS 主题（需求 9）走同一条路并按需扩语法：用户在配置目录 `themes/<id>/theme.css` 放文件即可，一期只预留目录，不做加载
 
 ## 8. 投递适配器
@@ -348,11 +365,15 @@ type PushResult =
   "targets": ["wechat", "zhihu"],
   "fixed": { "wechat": { "header": true, "footer": true }, "zhihu": { "header": false, "footer": true } },
   "wechat": {
-    "card": { "mpId": "", "nickname": "", "headImg": "", "signature": "", "serviceType": 1, "verifyStatus": 1 },
+    "card": { "enabled": false, "mpId": "", "nickname": "", "headImg": "", "signature": "", "serviceType": 1, "verifyStatus": 1 },
+    "start": { "slogan": "", "producerName": "" },
     "proxy": ""
   }
 }
 ```
+
+- `fixed`、`wechat.card`、`wechat.start` 与 `author` 的含义见第 6 节：公众号的 `header`、`footer` 是开头样式一、结尾样式一的开关，知乎只有 `footer`
+- `templates/wechat/footer.md`、`templates/zhihu/footer.md` 是两段结尾 Markdown；两个 `header.md` 目前不读取
 
 `state.json`：
 
@@ -443,7 +464,7 @@ issue #1 快照 9 的八项实测，按它们各自影响的设计决策归位�
 | 实测项 | 影响的决策 | 通过时 | 不通过时 |
 |---|---|---|---|
 | 1 公众号编辑器粘贴 data URL 图片是否保留 | 网页版公众号复制路径 | 维持 data URL（my-toolbox 日常使用已证实）。网页版上线后粘贴后可见已证实，保存后重开待用户核对 | 公众号路径也改走中转桶 |
-| 3 接口提交的 `mp-common-profile` 是否保留 | 名片是否只在复制路径可用 | 维持 `:::card` | 回读警告改为「接口路径不支持名片」并在文档写明 |
+| 3 接口提交的 `mp-common-profile` 是否保留 | 名片是否只在复制路径可用 | 维持 `:::card`（my-toolbox 的草稿推送同样带名片并在回读时核对数量；锦章待真实账号验收时确认） | 回读警告改为「接口路径不支持名片」并在文档写明 |
 | 4 合集链接经接口提交是否可点 | `:::recent` 块的链接写法 | 维持 `<a>` | 改为文字加提示「在编辑器里手动插入合集」 |
 | 5 知乎 PATCH 后草稿是否进创作中心、二次 PATCH 不重复、登录态时效、限速阈值 | 知乎适配器的幂等与限速参数 | 维持 8.2 | 调整键与间隔；极端情况退回剪贴板 |
 | 6 标题 33 到 64 字的展示 | 标题规则 | 保持只警告 | 不改需求，文档补展示效果 |
@@ -498,3 +519,4 @@ issue #1 快照 9 的八项实测，按它们各自影响的设计决策归位�
 - 2026-09-30 按已实现的 core（main `4d312c0`）同步：第 1 节加实现状态；第 2 节目录与构建按实际（依赖打进产物、包不发布、主题生成、快照基线）；第 3 节去掉 `RenderHost`（渲染只需 `AssetResolver`，编解码由 `ImageStore` 持有），`ResolvedAsset` 改为实际类型并去掉 `local`，插件编解码复用 `CanvasImageCodec`，依赖边界检查落到脚本；第 4 节接口改为实际签名，补 `sourceLocations`、根入口的其他导出、`htmlChars` 的实际口径与体检预算，更新警告码与各阶段规则（frontmatter 只去映射、按源位置保留原始引用、中文软换行、`style` 允许列表、压缩不再按继承删除声明）；4.1 根节点、表格、脚注、任务列表与主题限制按实现；4.2 补相邻代码块规则与粘贴路径验收；第 5 节 `ImageStore.put` 改为接收引用，补两档规格与 Canvas 编解码细节；第 6 节标出已实现与未实现（`:::card`、`:::recent` 样式、模板文件）；第 7 节主题引擎按实现收窄（不支持 `var()`、`url()`）并补维护规则；第 8 至 11 节标为未实现，体检长度预估补地址预算；第 12 节更新实测进展。来源 issue #4、#5、#9
 - 2026-09-30 按插件设计定稿（issue #12）回写：`./node` 只放命令行与插件共用的文件读写，sharp 编解码与带代理的传输由各壳的宿主实现提供（命令行包用 sharp 与 undici）；与平台无关的 data URL 归位放 `./browser`，网页与插件共用；宿主表的插件一列按插件设计更新（`requestUrl` 自包超时、解析器分支）；补 `jz-local://` 的三种用法；插件设计链接改为 obsidian-plugin.md
 - 2026-09-30 投递适配器、配置目录读写与 Obsidian 插件实现合入（issue #12，PR #17、#18、#19）：第 1 节实现状态与第 2、3、5、6、8 至 11 节的「未实现」标注更新；接口与实现的出入不回改，记在 issue #12 的批次快照
+- 2026-10-07 按用户要求与本机 my-toolbox 对齐（issue #12）：少数派与公众号原生两套主题的取值改为与 my-toolbox 同名主题一致，代码块带红黄绿圆点，图片带圆角与阴影，表格样式写成属性，嵌套列表保留原生结构（第 4.1、7 节）；实现 `:::card` 名片，本地形态的固定内容改为「开头样式一、结尾样式一、账号名片、知乎默认结尾」，配置加 `wechat.card.enabled` 与 `wechat.start`（第 6、9 节）；主题的 `!important` 带到成品，文字节点上与根容器重复的声明交给继承（第 4 节阶段 8、9）
