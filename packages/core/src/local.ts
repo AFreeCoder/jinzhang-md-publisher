@@ -1,21 +1,22 @@
-import type { Platform, ThemeId } from './types';
+import type { Platform, ThemeId, WechatCard } from './types';
+export type { WechatCard } from './types';
 /** 本地形态（命令行与插件）共用的配置、状态与凭证结构，读写实现见 `./node`。 */
 export const PLATFORMS: Platform[] = ['wechat', 'zhihu'];
-export interface WechatCard {
-  mpId: string;
-  nickname: string;
-  headImg: string;
-  signature: string;
-  serviceType: number;
-  verifyStatus: number;
-}
 export interface JinzhangConfig {
   version: 1;
+  /** 作者名：开头样式一的「作者」一行，也是模板变量 `{{author}}` 的取值。 */
   author: string;
   theme: ThemeId;
   targets: Platform[];
+  /** 公众号的 `header`、`footer` 是开头样式一、结尾样式一的开关；知乎只有结尾，`header` 不生效。 */
   fixed: Record<Platform, { header: boolean; footer: boolean }>;
-  wechat: { card: WechatCard; proxy: string };
+  wechat: {
+    /** `enabled` 决定已启用的开头、结尾样式里是否带名片。 */
+    card: WechatCard & { enabled: boolean };
+    /** 开头样式一的顶部宣言与出品公众号。 */
+    start: { slogan: string; producerName: string };
+    proxy: string;
+  };
 }
 export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends readonly unknown[]
@@ -32,7 +33,16 @@ export function defaultConfig(): JinzhangConfig {
     targets: ['wechat', 'zhihu'],
     fixed: { wechat: { header: true, footer: true }, zhihu: { header: true, footer: true } },
     wechat: {
-      card: { mpId: '', nickname: '', headImg: '', signature: '', serviceType: 1, verifyStatus: 1 },
+      card: {
+        enabled: false,
+        mpId: '',
+        nickname: '',
+        headImg: '',
+        signature: '',
+        serviceType: 1,
+        verifyStatus: 1,
+      },
+      start: { slogan: '', producerName: '' },
       proxy: '',
     },
   };
@@ -48,6 +58,7 @@ export function normalizeConfig(raw: unknown): JinzhangConfig {
   const fixed = isRecord(source.fixed) ? source.fixed : {};
   const wechat = isRecord(source.wechat) ? source.wechat : {};
   const card = isRecord(wechat.card) ? wechat.card : {};
+  const start = isRecord(wechat.start) ? wechat.start : {};
   const targets = Array.isArray(source.targets)
     ? PLATFORMS.filter((p) => source.targets.includes(p))
     : base.targets;
@@ -71,9 +82,75 @@ export function normalizeConfig(raw: unknown): JinzhangConfig {
     wechat: {
       card: Object.fromEntries(
         Object.entries(base.wechat.card).map(([key, value]) => [key, pick(card[key], value)]),
-      ) as unknown as WechatCard,
+      ) as unknown as JinzhangConfig['wechat']['card'],
+      start: {
+        slogan: pick(start.slogan, base.wechat.start.slogan).trim(),
+        producerName: pick(start.producerName, base.wechat.start.producerName).trim(),
+      },
       proxy: pick(wechat.proxy, base.wechat.proxy).trim(),
     },
+  };
+}
+/**
+ * 开头样式一：顶部宣言、账号名片、作者、出品公众号、分隔线。是一份内置模板，
+ * 走与用户模板相同的变量规则：没有取值的行整行不显示。名片一行由调用方按开关决定是否保留。
+ */
+const START_STYLE_1 = [
+  '<section style="margin:0 0 12px;font-weight:400;color:inherit">',
+  '<section style="margin:0 0 6px;text-align:center;font-size:13px;line-height:1.5;font-weight:400;letter-spacing:0.02em;color:inherit">{{slogan}}</section>',
+  ':::card',
+  '<section style="margin:0;font-size:12px;line-height:1.5;font-weight:400;color:inherit">作者｜{{author}}</section>',
+  '<section style="margin:4px 0 0;font-size:12px;line-height:1.5;font-weight:400;color:inherit">出品｜公众号：<span style="font-size:inherit;line-height:inherit;font-weight:inherit;color:#0b83c7">{{producer}}</span></section>',
+  '<section style="margin:12px 0 0;height:1px;line-height:1px;background-color:#e5e5e5">&#8203;</section>',
+  '</section>',
+];
+const CARD_BLOCK = ':::card\n:::';
+export interface FixedContent {
+  fixed: { header: boolean; footer: boolean };
+  templates: { header: string; footer: string };
+  /** 模板变量：`date`、`author`，公众号另有开头样式用的 `slogan`、`producer`。 */
+  variables: Record<string, string>;
+  card: WechatCard | null;
+}
+/**
+ * 本地形态的固定内容（做法取自 my-toolbox）：公众号是「开头样式一 → 正文 → 结尾样式一」，
+ * 结尾样式一先放结尾 Markdown 再放名片；知乎只有结尾 Markdown。名片的位置由两种样式决定，
+ * 都启用时各出现一张。开了开关但没有任何内容可显示时，视为未启用。
+ */
+export function localFixed(
+  platform: Platform,
+  config: JinzhangConfig,
+  footers: Record<Platform, string>,
+  today: string,
+): FixedContent {
+  const footer = (footers[platform] || '').trim();
+  const variables: Record<string, string> = { date: today };
+  if (config.author) variables.author = config.author;
+  if (platform === 'zhihu')
+    return {
+      fixed: { header: false, footer: config.fixed.zhihu.footer && !!footer },
+      templates: { header: '', footer },
+      variables,
+      card: null,
+    };
+  const { enabled, ...data } = config.wechat.card;
+  const card = enabled && data.mpId && data.nickname ? data : null;
+  const { slogan, producerName } = config.wechat.start;
+  if (slogan) variables.slogan = slogan;
+  if (producerName) variables.producer = producerName;
+  return {
+    fixed: {
+      header: config.fixed.wechat.header && !!(slogan || config.author || producerName || card),
+      footer: config.fixed.wechat.footer && !!(footer || card),
+    },
+    templates: {
+      header: START_STYLE_1.map((line) => (line === ':::card' ? (card ? CARD_BLOCK : '') : line))
+        .filter(Boolean)
+        .join('\n\n'),
+      footer: [footer, card ? CARD_BLOCK : ''].filter(Boolean).join('\n\n'),
+    },
+    variables,
+    card,
   };
 }
 export type DraftStatus = 'confirmed' | 'unverified' | 'uncertain';

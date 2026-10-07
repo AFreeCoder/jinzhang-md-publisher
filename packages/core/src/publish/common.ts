@@ -6,6 +6,12 @@ import type { PlatformSummary, PublishContext, RenderedArticle } from './types';
 export const WECHAT_URL_BUDGET = 512;
 export const TEMPLATE_PARTS = ['header', 'footer'] as const;
 const PART_NAMES = { header: '开头', footer: '结尾' };
+/** 开头样式一用到的变量在设置里的名字；其余变量按模板里的写法提示。 */
+const VARIABLE_NAMES: Record<string, string> = {
+  slogan: '顶部宣言',
+  author: '作者',
+  producer: '出品公众号',
+};
 export const images = (ctx: PublishContext) => (ctx.images ??= new ImageCache(ctx.host));
 export const progress = (ctx: PublishContext, message: string) => ctx.onProgress?.(message);
 /** 当前账号下的草稿映射；映射属于另一个账号时视为没有，并给出诊断。 */
@@ -110,7 +116,7 @@ export function templateWarnings(ctx: PublishContext, platform: Platform): Warni
     if (missing.length)
       warnings.push({
         code: 'TEMPLATE_VARIABLE_MISSING',
-        message: `${PART_NAMES[part]}模板里的 ${missing.map((k) => `{{${k}}}`).join('、')} 没有取值，所在行不会显示。`,
+        message: `${PART_NAMES[part]}里的${missing.map((k) => VARIABLE_NAMES[k] ?? ` {{${k}}} `).join('、')}没有取值，所在行不会显示。`,
       });
     if (platform === 'zhihu') {
       const tags = [...source.matchAll(/<([a-z][\w-]*)/gi)]

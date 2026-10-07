@@ -7,15 +7,15 @@ exports[`共享渲染 > 公众号任务列表、代码、三套主题输出稳�
 `;
 
 exports[`共享渲染 > 公众号任务列表、代码、三套主题输出稳定 > native 1`] = `
-"<section style="font-family:-apple-system,BlinkMacSystemFont,&#x22;PingFang SC&#x22;,sans-serif;font-size:15px;line-height:1.9;color:#343a34;word-wrap:break-word"><h2 style="font-size:19px;color:#526d64;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">标题</h2>
-<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 未完成</li></ul>
-<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f">  <span style="color:#a04b57">const</span> x = <span style="color:#ab7245">1</span>;<br>  <span>console</span>.<span style="color:#4f6f91">log</span>(x);</code></pre></section></section>"
+"<section style="max-width:100%;margin:0 auto;padding:0 0 48px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;font-size:16px;line-height:1.7!important;color:#333!important;background-color:#fff!important;word-wrap:break-word"><h2 style="font-size:26px;font-weight:600;color:#111!important;line-height:1.35!important;margin:32px 0 16px">标题</h2>
+<ul style="margin:16px 0;padding-left:28px;list-style-type:disc!important;list-style-position:outside"><li style="margin:8px 0;list-style:none;margin-left:-24px">☑ 完成</li><li style="margin:8px 0;list-style:none;margin-left:-24px">☐ 未完成</li></ul>
+<section style="overflow-x:auto;max-width:100%;margin:24px 0"><pre style="padding:20px;background-color:#f0f7f2!important;border-radius:8px;overflow-x:auto;font-size:12px!important;line-height:1.5!important;font-variant-ligatures:none;tab-size:2;margin:0"><section style="margin-bottom:12px;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f56;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffbd2e;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#27c93f"></span></section><code style="font-family:monospace;padding:0;background-color:transparent!important;color:inherit!important;border-radius:0;font-size:inherit!important;line-height:inherit!important;display:block;font-style:normal!important;white-space:pre;word-break:normal;overflow-wrap:normal">  <span style="color:#d73a49;font-weight:600">const</span> x = <span style="color:#005cc5">1</span>;<br>  <span style="color:#e36209">console</span>.<span style="color:#6f42c1;font-weight:600">log</span>(x);</code></pre></section></section>"
 `;
 
 exports[`共享渲染 > 公众号任务列表、代码、三套主题输出稳定 > sspai 1`] = `
-"<section style="font-family:-apple-system,BlinkMacSystemFont,&#x22;PingFang SC&#x22;,sans-serif;font-size:15px;line-height:1.9;color:#343a34;word-wrap:break-word"><h2 style="font-size:19px;color:#ac493a;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">标题</h2>
-<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 未完成</li></ul>
-<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f">  <span style="color:#a04b57">const</span> x = <span style="color:#ab7245">1</span>;<br>  <span>console</span>.<span style="color:#4f6f91">log</span>(x);</code></pre></section></section>"
+"<section style="max-width:100%;margin:0 auto;padding:0 0 48px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;font-size:16px;line-height:1.8!important;color:#333!important;background-color:#fff!important;word-wrap:break-word"><h2 style="font-size:22px;font-weight:700;line-height:1.35!important;margin:32px 0 14px;padding-left:12px;border-left:4px solid #d71a1b">标题</h2>
+<ul style="margin:16px 0;padding-left:28px;list-style-type:disc!important;list-style-position:outside"><li style="margin:8px 0;list-style:none;margin-left:-24px">☑ 完成</li><li style="margin:8px 0;list-style:none;margin-left:-24px">☐ 未完成</li></ul>
+<section style="overflow-x:auto;max-width:100%;margin:24px 0"><pre style="padding:20px;background-color:#fafafa!important;border-radius:8px;overflow-x:auto;font-size:13px!important;line-height:1.5!important;border:1px solid #f0f0f0;font-variant-ligatures:none;tab-size:2;margin:0"><section style="margin-bottom:12px;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f56;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffbd2e;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#27c93f"></span></section><code style="font-family:monospace;padding:0;background-color:transparent!important;color:inherit!important;border-radius:0;font-size:inherit!important;line-height:inherit!important;display:block;font-style:normal!important;white-space:pre;word-break:normal;overflow-wrap:normal">  <span style="color:#d73a49;font-weight:600">const</span> x = <span style="color:#005cc5">1</span>;<br>  <span style="color:#e36209">console</span>.<span style="color:#6f42c1;font-weight:600">log</span>(x);</code></pre></section></section>"
 `;
 
 exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿主中不依赖 DOM 或 Node 环境 > wechat-mac 1`] = `
@@ -24,9 +24,9 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 <p style="margin:16px 0"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:20px auto"></p>
 <h2 style="font-size:19px;color:#51667d;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">列表与任务</h2>
 <ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">一级列表
-<section style="margin-left:1em"><section style="margin:4px 0">• 二级列表
-<section style="margin-left:1em"><section style="margin:4px 0">• 三级列表</section></section>
-</section></section>
+<ul style="padding-left:24px;margin:4px 0"><li style="margin:7px 0">二级列表
+<ul style="padding-left:24px;margin:4px 0"><li style="margin:7px 0">三级列表</li></ul>
+</li></ul>
 </li><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 已完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 待完成</li></ul>
 <ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">第一项</li><li style="margin:7px 0">第二项</li></ol>
 <h3 style="font-size:17px;color:#51667d;margin:23px 0 14px">代码</h3>
@@ -53,7 +53,7 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 
 
 
-<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
+<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;min-width:280px;white-space:normal;word-break:normal;overflow-wrap:anywhere;margin:0" border="1" cellpadding="8" cellspacing="0" bordercolor="#dddddd"><thead><tr><th bgcolor="#f2f3f0">平台</th><th bgcolor="#f2f3f0">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
 <p style="margin:16px 0">正文带有脚注<sup style="font-size:11px;color:#51667d">[1]</sup>，也支持 <del>删除线</del>。</p>
 <hr style="border:0;border-top:1px solid #dfdfd8;margin:28px 0">
 <section><ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0"><a href="https://example.com/reading" style="color:#51667d;text-decoration:underline">继续阅读</a></li></ul></section>
@@ -67,22 +67,22 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 `;
 
 exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿主中不依赖 DOM 或 Node 环境 > wechat-native 1`] = `
-"<section style="font-family:-apple-system,BlinkMacSystemFont,&#x22;PingFang SC&#x22;,sans-serif;font-size:15px;line-height:1.9;color:#343a34;word-wrap:break-word">
-<p style="margin:16px 0">一篇覆盖常用 Markdown 的验收样文。<strong style="font-weight:600;color:#526d64">重点，</strong>标点与强调应在一起。</p>
-<p style="margin:16px 0"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:20px auto"></p>
-<h2 style="font-size:19px;color:#526d64;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">列表与任务</h2>
-<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">一级列表
-<section style="margin-left:1em"><section style="margin:4px 0">• 二级列表
-<section style="margin-left:1em"><section style="margin:4px 0">• 三级列表</section></section>
-</section></section>
-</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 已完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 待完成</li></ul>
-<ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">第一项</li><li style="margin:7px 0">第二项</li></ol>
-<h3 style="font-size:17px;color:#526d64;margin:23px 0 14px">代码</h3>
-<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f"><span style="color:#a04b57">function</span> <span style="color:#4f6f91">greet</span>(<span><span style="color:#58775b">name</span>: <span style="color:#4f6f91">string</span></span>) {<br>  <span style="color:#a04b57">return</span> <span style="color:#58775b">\`你好，<span>\${name}</span>\`</span>;<br>}</code></pre></section>
-<h4 style="font-size:16px;margin:20px 0 12px">深层标题</h4>
-<p style="margin:16px 0">知乎将此标题转换为加粗段落。</p>
-<blockquote style="margin:22px 0;padding:12px 16px;border-left:3px solid #526d64;background:#f7f7f4;color:#70766a">
-<p style="margin:10px 0;margin-top:0;margin-bottom:0">引用中保留文字与链接。</p>
+"<section style="max-width:100%;margin:0 auto;padding:0 0 48px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;font-size:16px;line-height:1.7!important;color:#333!important;background-color:#fff!important;word-wrap:break-word">
+<p style="margin:18px 0!important">一篇覆盖常用 Markdown 的验收样文。<strong style="font-weight:700;color:#07c160!important;background-color:rgba(7,193,96,0.08);padding:0 4px;border-radius:4px">重点，</strong>标点与强调应在一起。</p>
+<p style="margin:18px 0!important"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:30px auto!important;border-radius:14px!important;width:100%;padding:8px!important;box-sizing:border-box;box-shadow:0 16px 34px rgba(15,23,42,0.22),0 4px 10px rgba(15,23,42,0.12);border:1px solid rgba(15,23,42,0.12)"></p>
+<h2 style="font-size:26px;font-weight:600;color:#111!important;line-height:1.35!important;margin:32px 0 16px">列表与任务</h2>
+<ul style="margin:16px 0;padding-left:28px;list-style-type:disc!important;list-style-position:outside"><li style="margin:8px 0">一级列表
+<ul style="margin:16px 0;padding-left:28px;list-style-type:circle!important;list-style-position:outside"><li style="margin:8px 0">二级列表
+<ul style="margin:16px 0;padding-left:28px;list-style-type:square!important;list-style-position:outside"><li style="margin:8px 0">三级列表</li></ul>
+</li></ul>
+</li><li style="margin:8px 0;list-style:none;margin-left:-24px">☑ 已完成</li><li style="margin:8px 0;list-style:none;margin-left:-24px">☐ 待完成</li></ul>
+<ol style="margin:16px 0;padding-left:28px;list-style-type:decimal!important;list-style-position:outside"><li style="margin:8px 0">第一项</li><li style="margin:8px 0">第二项</li></ol>
+<h3 style="font-size:21px;font-weight:600;line-height:1.4!important;margin:28px 0 14px">代码</h3>
+<section style="overflow-x:auto;max-width:100%;margin:24px 0"><pre style="padding:20px;background-color:#f0f7f2!important;border-radius:8px;overflow-x:auto;font-size:12px!important;line-height:1.5!important;font-variant-ligatures:none;tab-size:2;margin:0"><section style="margin-bottom:12px;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f56;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffbd2e;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#27c93f"></span></section><code style="font-family:monospace;padding:0;background-color:transparent!important;color:inherit!important;border-radius:0;font-size:inherit!important;line-height:inherit!important;display:block;font-style:normal!important;white-space:pre;word-break:normal;overflow-wrap:normal"><span style="color:#d73a49;font-weight:600">function</span> <span style="color:#6f42c1;font-weight:600">greet</span>(<span><span style="color:#6f42c1">name</span>: <span style="color:#005cc5">string</span></span>) {<br>  <span style="color:#d73a49;font-weight:600">return</span> <span style="color:#032f62">\`你好，<span>\${name}</span>\`</span>;<br>}</code></pre></section>
+<h4 style="font-size:18px;font-weight:600;line-height:1.4!important;margin:24px 0 12px">深层标题</h4>
+<p style="margin:18px 0!important">知乎将此标题转换为加粗段落。</p>
+<blockquote style="margin:24px 0;padding:16px 20px;background-color:#f0f7f2!important;border-left:4px solid #07c160;color:#555!important;border-radius:4px">
+<p style="margin:0!important;color:#333!important">引用中保留文字与链接。</p>
 </blockquote>
 
 
@@ -101,36 +101,36 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 
 
 
-<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
-<p style="margin:16px 0">正文带有脚注<sup style="font-size:11px;color:#526d64">[1]</sup>，也支持 <del>删除线</del>。</p>
-<hr style="border:0;border-top:1px solid #dfdfd8;margin:28px 0">
-<section><ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0"><a href="https://example.com/reading" style="color:#526d64;text-decoration:underline">继续阅读</a></li></ul></section>
-<p style="color:#526d64;margin:16px 0">允许的内联颜色。</p>
-<img src="jz-img:1" alt="原始 HTML 图片" style="max-width:100%;height:auto;display:block;margin:20px auto">
-<section><h2 style="font-size:19px;color:#526d64;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">注释</h2>
-<ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">
-<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#526d64;text-decoration:underline">项目仓库</a></span>
+<section style="overflow-x:auto;max-width:100%;margin:24px 0"><table style="width:100%;border-collapse:collapse;font-size:15px;table-layout:fixed;min-width:280px;color:#333;white-space:normal;word-break:normal;overflow-wrap:anywhere;margin:0" border="1" cellpadding="12" cellspacing="0" bordercolor="#d8e8dc"><thead><tr><th align="left" bgcolor="#f0f7f2">平台</th><th align="left" bgcolor="#f0f7f2">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
+<p style="margin:18px 0!important">正文带有脚注<sup style="font-size:11px;color:#07c160">[1]</sup>，也支持 <del>删除线</del>。</p>
+<hr style="margin:36px auto;border:none;height:1px;background-color:#eaeaea!important;width:100%">
+<section><ul style="margin:16px 0;padding-left:28px;list-style-type:disc!important;list-style-position:outside"><li style="margin:8px 0"><a href="https://example.com/reading" style="color:#07c160!important;text-decoration:none;border-bottom:1px solid #07c160;padding-bottom:1px">继续阅读</a></li></ul></section>
+<p style="color:#526d64;margin:18px 0!important">允许的内联颜色。</p>
+<img src="jz-img:1" alt="原始 HTML 图片" style="max-width:100%;height:auto;display:block;margin:30px auto!important;border-radius:14px!important;width:100%;padding:8px!important;box-sizing:border-box;box-shadow:0 16px 34px rgba(15,23,42,0.22),0 4px 10px rgba(15,23,42,0.12);border:1px solid rgba(15,23,42,0.12)">
+<section><h2 style="font-size:26px;font-weight:600;color:#111!important;line-height:1.35!important;margin:32px 0 16px">注释</h2>
+<ol style="margin:16px 0;padding-left:28px;list-style-type:decimal!important;list-style-position:outside"><li style="margin:8px 0">
+<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#07c160!important;text-decoration:none;border-bottom:1px solid #07c160;padding-bottom:1px">项目仓库</a></span>
 </li></ol>
 </section></section>"
 `;
 
 exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿主中不依赖 DOM 或 Node 环境 > wechat-sspai 1`] = `
-"<section style="font-family:-apple-system,BlinkMacSystemFont,&#x22;PingFang SC&#x22;,sans-serif;font-size:15px;line-height:1.9;color:#343a34;word-wrap:break-word">
-<p style="margin:16px 0">一篇覆盖常用 Markdown 的验收样文。<strong style="font-weight:600;color:#ac493a">重点，</strong>标点与强调应在一起。</p>
-<p style="margin:16px 0"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:20px auto"></p>
-<h2 style="font-size:19px;color:#ac493a;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">列表与任务</h2>
-<ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">一级列表
-<section style="margin-left:1em"><section style="margin:4px 0">• 二级列表
-<section style="margin-left:1em"><section style="margin:4px 0">• 三级列表</section></section>
-</section></section>
-</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☑ 已完成</li><li style="margin:7px 0;list-style:none;margin-left:-20px">☐ 待完成</li></ul>
-<ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">第一项</li><li style="margin:7px 0">第二项</li></ol>
-<h3 style="font-size:17px;color:#ac493a;margin:23px 0 14px">代码</h3>
-<section style="overflow-x:auto;max-width:100%;margin:20px 0"><pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre;word-wrap:normal;padding:16px 18px;background:#f5f6f5;color:#39443f;margin:0"><code style="font-family:Menlo,Consolas,monospace;font-size:13px;padding:0;border-radius:0;background:transparent;color:#39443f"><span style="color:#a04b57">function</span> <span style="color:#4f6f91">greet</span>(<span><span style="color:#58775b">name</span>: <span style="color:#4f6f91">string</span></span>) {<br>  <span style="color:#a04b57">return</span> <span style="color:#58775b">\`你好，<span>\${name}</span>\`</span>;<br>}</code></pre></section>
-<h4 style="font-size:16px;margin:20px 0 12px">深层标题</h4>
-<p style="margin:16px 0">知乎将此标题转换为加粗段落。</p>
-<blockquote style="margin:22px 0;padding:12px 16px;border-left:3px solid #ac493a;background:#f7f7f4;color:#70766a">
-<p style="margin:10px 0;margin-top:0;margin-bottom:0">引用中保留文字与链接。</p>
+"<section style="max-width:100%;margin:0 auto;padding:0 0 48px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;font-size:16px;line-height:1.8!important;color:#333!important;background-color:#fff!important;word-wrap:break-word">
+<p style="margin:20px 0!important">一篇覆盖常用 Markdown 的验收样文。<strong style="font-weight:700;color:#d71a1b!important">重点，</strong>标点与强调应在一起。</p>
+<p style="margin:20px 0!important"><img src="jz-img:0" alt="本地图片" style="max-width:100%;height:auto;display:block;margin:30px auto!important;border-radius:14px!important;width:100%;padding:8px!important;box-sizing:border-box;box-shadow:0 16px 34px rgba(15,23,42,0.22),0 4px 10px rgba(15,23,42,0.12);border:1px solid rgba(15,23,42,0.12)"></p>
+<h2 style="font-size:22px;font-weight:700;line-height:1.35!important;margin:32px 0 14px;padding-left:12px;border-left:4px solid #d71a1b">列表与任务</h2>
+<ul style="margin:16px 0;padding-left:28px;list-style-type:disc!important;list-style-position:outside"><li style="margin:8px 0">一级列表
+<ul style="margin:16px 0;padding-left:28px;list-style-type:circle!important;list-style-position:outside"><li style="margin:8px 0">二级列表
+<ul style="margin:16px 0;padding-left:28px;list-style-type:square!important;list-style-position:outside"><li style="margin:8px 0">三级列表</li></ul>
+</li></ul>
+</li><li style="margin:8px 0;list-style:none;margin-left:-24px">☑ 已完成</li><li style="margin:8px 0;list-style:none;margin-left:-24px">☐ 待完成</li></ul>
+<ol style="margin:16px 0;padding-left:28px;list-style-type:decimal!important;list-style-position:outside"><li style="margin:8px 0">第一项</li><li style="margin:8px 0">第二项</li></ol>
+<h3 style="font-size:18px;font-weight:600;line-height:1.4!important;margin:28px 0 12px">代码</h3>
+<section style="overflow-x:auto;max-width:100%;margin:24px 0"><pre style="padding:20px;background-color:#fafafa!important;border-radius:8px;overflow-x:auto;font-size:13px!important;line-height:1.5!important;border:1px solid #f0f0f0;font-variant-ligatures:none;tab-size:2;margin:0"><section style="margin-bottom:12px;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f56;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffbd2e;margin-right:6px"></span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#27c93f"></span></section><code style="font-family:monospace;padding:0;background-color:transparent!important;color:inherit!important;border-radius:0;font-size:inherit!important;line-height:inherit!important;display:block;font-style:normal!important;white-space:pre;word-break:normal;overflow-wrap:normal"><span style="color:#d73a49;font-weight:600">function</span> <span style="color:#6f42c1;font-weight:600">greet</span>(<span><span style="color:#6f42c1">name</span>: <span style="color:#005cc5">string</span></span>) {<br>  <span style="color:#d73a49;font-weight:600">return</span> <span style="color:#032f62">\`你好，<span>\${name}</span>\`</span>;<br>}</code></pre></section>
+<h4 style="font-size:16px;font-weight:600;line-height:1.4!important;margin:24px 0 12px">深层标题</h4>
+<p style="margin:20px 0!important">知乎将此标题转换为加粗段落。</p>
+<blockquote style="margin:24px 0;padding:16px 20px;background-color:#fef7f7!important;border-left:4px solid #d71a1b;color:#555!important;border-radius:4px">
+<p style="margin:0!important;color:#333!important">引用中保留文字与链接。</p>
 </blockquote>
 
 
@@ -149,15 +149,15 @@ exports[`标准文章跨主题与平台基线 > 同一份 core 输入在各宿�
 
 
 
-<section style="overflow-x:auto;max-width:100%;margin:18px 0"><table border="1" cellpadding="8" bgcolor="#ffffff" style="min-width:280px;border-collapse:collapse;table-layout:fixed;font-size:13px;margin:0"><thead><tr><th style="background:#f2f3f0;font-weight:600">平台</th><th style="background:#f2f3f0;font-weight:600">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
-<p style="margin:16px 0">正文带有脚注<sup style="font-size:11px;color:#ac493a">[1]</sup>，也支持 <del>删除线</del>。</p>
-<hr style="border:0;border-top:1px solid #dfdfd8;margin:28px 0">
-<section><ul style="padding-left:24px;margin:16px 0"><li style="margin:7px 0"><a href="https://example.com/reading" style="color:#ac493a;text-decoration:underline">继续阅读</a></li></ul></section>
-<p style="color:#526d64;margin:16px 0">允许的内联颜色。</p>
-<img src="jz-img:1" alt="原始 HTML 图片" style="max-width:100%;height:auto;display:block;margin:20px auto">
-<section><h2 style="font-size:19px;color:#ac493a;margin:28px 0 18px;padding-bottom:8px;border-bottom:1px solid #e6e5df">注释</h2>
-<ol style="padding-left:24px;margin:16px 0"><li style="margin:7px 0">
-<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#ac493a;text-decoration:underline">项目仓库</a></span>
+<section style="overflow-x:auto;max-width:100%;margin:24px 0"><table style="width:100%;border-collapse:collapse;font-size:15px;table-layout:fixed;min-width:280px;color:#333;white-space:normal;word-break:normal;overflow-wrap:anywhere;margin:0" border="1" cellpadding="12" cellspacing="0" bordercolor="#f0e0e0"><thead><tr><th align="left" bgcolor="#fef7f7">平台</th><th align="left" bgcolor="#fef7f7">能力</th></tr></thead><tbody><tr><td>微信公众号</td><td>样式与图片</td></tr><tr><td>知乎</td><td>结构与图片</td></tr></tbody></table></section>
+<p style="margin:20px 0!important">正文带有脚注<sup style="font-size:11px;color:#d71a1b">[1]</sup>，也支持 <del>删除线</del>。</p>
+<hr style="margin:36px auto;border:none;height:1px;background-color:#eee!important;width:100%">
+<section><ul style="margin:16px 0;padding-left:28px;list-style-type:disc!important;list-style-position:outside"><li style="margin:8px 0"><a href="https://example.com/reading" style="color:#d71a1b!important;text-decoration:none;border-bottom:1px solid rgba(215,26,27,0.3);padding-bottom:1px">继续阅读</a></li></ul></section>
+<p style="color:#526d64;margin:20px 0!important">允许的内联颜色。</p>
+<img src="jz-img:1" alt="原始 HTML 图片" style="max-width:100%;height:auto;display:block;margin:30px auto!important;border-radius:14px!important;width:100%;padding:8px!important;box-sizing:border-box;box-shadow:0 16px 34px rgba(15,23,42,0.22),0 4px 10px rgba(15,23,42,0.12);border:1px solid rgba(15,23,42,0.12)">
+<section><h2 style="font-size:22px;font-weight:700;line-height:1.35!important;margin:32px 0 14px;padding-left:12px;border-left:4px solid #d71a1b">注释</h2>
+<ol style="margin:16px 0;padding-left:28px;list-style-type:decimal!important;list-style-position:outside"><li style="margin:8px 0">
+<span>参考 <a href="https://github.com/AFreeCoder/jinzhang-md-publisher" style="color:#d71a1b!important;text-decoration:none;border-bottom:1px solid rgba(215,26,27,0.3);padding-bottom:1px">项目仓库</a></span>
 </li></ol>
 </section></section>"
 `;

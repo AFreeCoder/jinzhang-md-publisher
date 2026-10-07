@@ -139,13 +139,14 @@ describe('公众号体检', () => {
       await article(BODY),
       context(m.host, {
         fixed: { header: true, footer: false },
-        templates: { header: '作者 {{author}}\n标题 {{title}}' },
+        templates: { header: '作者 {{author}}\n标题 {{title}}\n{{slogan}} {{foo}}' },
         variables: { date: '2026-09-30' },
       }),
     );
-    expect(report.warnings).toContainEqual(
-      expect.objectContaining({ code: 'TEMPLATE_VARIABLE_MISSING' }),
-    );
+    expect(report.warnings).toContainEqual({
+      code: 'TEMPLATE_VARIABLE_MISSING',
+      message: '开头里的作者、顶部宣言、 {{foo}} 没有取值，所在行不会显示。',
+    });
   });
 });
 describe('公众号推送', () => {

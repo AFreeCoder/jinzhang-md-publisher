@@ -24,9 +24,22 @@ export interface ArticleInput {
   title: string;
   templates?: { header?: string; footer?: string };
 }
+/** 公众号名片的资料，`:::card` 据此输出编辑器原生的名片组件。 */
+export interface WechatCard {
+  mpId: string;
+  nickname: string;
+  headImg: string;
+  signature: string;
+  serviceType: number;
+  verifyStatus: number;
+}
 export interface PrepareOptions {
   platform: Platform;
   fixed: { header: boolean; footer: boolean };
+  /** 开头结尾不包主题容器，按模板自带的样式与正文排版（本地形态）；缺省时包进 `jz-header`、`jz-footer` 由主题着色（网页版）。 */
+  plainFixed?: boolean;
+  /** `:::card` 用的名片资料；缺 `mpId` 或 `nickname` 时名片不输出并警告。 */
+  card?: WechatCard | null;
   cover?: string;
   resolver: AssetResolver;
   config?: Record<string, string>;
