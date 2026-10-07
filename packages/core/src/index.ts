@@ -13,6 +13,8 @@ import type { Root, Element, RootContent } from 'hast';
 declare module 'hast' {
   interface ElementData {
     sourceLine?: number;
+    /** 平台原生组件（名片）：类名与 data-* 不参与属性清理。 */
+    keepAttributes?: boolean;
   }
 }
 import type {
@@ -25,7 +27,8 @@ import type {
   ImageRef,
 } from './types';
 import { HTML_WARNING } from './types';
-import { inlineTheme } from './theme';
+import { inlineTheme, themes } from './theme';
+import { codeDots, compactTable, dropInherited, hasCard, wechatCard } from './wechat-html';
 import { safeStyle } from './sanitize-style';
 import { compactStyles } from './compact-styles';
 import { stripFrontmatter } from './frontmatter';
@@ -40,6 +43,8 @@ const schema: Options = {
     ...defaultSchema.attributes,
     img: [...(defaultSchema.attributes?.img || []), 'src', 'alt', 'title'],
     code: [['className', /^language-./]],
+    // `:::card` 的占位，清理后再换成名片或移除。
+    section: [...(defaultSchema.attributes?.section || []), ['dataJz', 'card']],
     '*': [...(defaultSchema.attributes?.['*'] || []), 'title', 'style'],
   },
   protocols: { ...defaultSchema.protocols, src: ['http', 'https', 'data', 'jz-local'] },
@@ -132,6 +137,9 @@ async function parse(markdown: string, warnings: Warning[], privateSyntax = fals
           node.data = { hName: 'hr' };
         } else if (node.name === 'recent') {
           node.data = { hName: 'section' };
+        } else if (node.name === 'card') {
+          node.data = { hName: 'section', hProperties: { dataJz: 'card' } };
+          node.children = [];
         } else {
           warnings.push({ code: 'UNSUPPORTED_SYNTAX', message: `不支持的样式块：${node.name}` });
           node.type = 'text';
@@ -246,30 +254,57 @@ export async function prepare(input: ArticleInput, opts: PrepareOptions): Promis
       inFixedContent: false,
     };
   }
+  const wrap = (part: Root, className: string) =>
+    !part.children.length
+      ? []
+      : opts.plainFixed
+        ? part.children
+        : [element('section', part.children, { className: [className] })];
+  const tree: Root = {
+    type: 'root',
+    children: [...wrap(header, 'jz-header'), ...body.children, ...wrap(footer, 'jz-footer')],
+  };
+  // 公众号把 `:::card` 占位换成名片；知乎留着占位，由方言移除并记降级。
+  if (opts.platform === 'wechat') {
+    let missing = false;
+    visit(tree, 'element', (node, index, parent) => {
+      if (node.properties.dataJz !== 'card' || !parent || index === undefined) return;
+      if (hasCard(opts.card)) parent.children[index] = wechatCard(opts.card);
+      else {
+        parent.children.splice(index, 1);
+        missing = true;
+        return index;
+      }
+    });
+    if (missing)
+      warnings.push({
+        code: 'CARD_NOT_CONFIGURED',
+        message: '还没有配置公众号名片，:::card 不会显示。',
+      });
+  }
   return {
     platform: opts.platform,
     title: input.title,
-    tree: {
-      type: 'root',
-      children: [
-        ...(header.children.length
-          ? [element('section', header.children, { className: ['jz-header'] })]
-          : []),
-        ...body.children,
-        ...(footer.children.length
-          ? [element('section', footer.children, { className: ['jz-footer'] })]
-          : []),
-      ],
-    },
+    tree,
     images,
     cover,
     warnings,
     version:
-      opts.version || JSON.stringify([input, opts.platform, opts.fixed, opts.cover, opts.config]),
+      opts.version ||
+      JSON.stringify([
+        input,
+        opts.platform,
+        opts.fixed,
+        opts.cover,
+        opts.config,
+        opts.plainFixed,
+        opts.card,
+      ]),
   };
 }
 function compact(tree: Root, platform: 'wechat' | 'zhihu') {
   visit(tree, 'element', (node) => {
+    if (node.data?.keepAttributes) return;
     for (const key of Object.keys(node.properties)) {
       if (
         key === 'className' ||
@@ -288,26 +323,6 @@ function compact(tree: Root, platform: 'wechat' | 'zhihu') {
       if (platform === 'zhihu' && key === 'style') delete node.properties[key];
     }
   });
-}
-function flattenLists(parent: Root | Element, depth = 0) {
-  for (const node of parent.children) {
-    if (node.type !== 'element') continue;
-    const list = node.tagName === 'ul' || node.tagName === 'ol';
-    if (list && depth > 0) {
-      const ordered = node.tagName === 'ol';
-      let n = Number(node.properties.start || 1);
-      node.tagName = 'section';
-      node.properties.style = 'margin-left:1em';
-      node.properties.className = ['jz-sublist'];
-      for (const child of node.children) {
-        if (child.type !== 'element' || child.tagName !== 'li') continue;
-        child.tagName = 'section';
-        child.properties.className = ['jz-subitem'];
-        child.children.unshift({ type: 'text', value: ordered ? `${n++}. ` : '• ' });
-      }
-    }
-    flattenLists(node, depth + (list ? 1 : 0));
-  }
 }
 function movePunctuation(parent: Root | Element) {
   for (let i = 0; i < parent.children.length - 1; i++) {
@@ -335,6 +350,11 @@ function dialect(tree: Root, platform: 'wechat' | 'zhihu', degraded: Warning[]) 
   });
   visit(tree, 'element', (node, index, parent) => {
     if (!parent || index === undefined) return;
+    if (platform === 'zhihu' && node.properties.dataJz === 'card') {
+      degraded.push({ code: 'ZHIHU_DEGRADED', message: '公众号名片已移除，知乎不支持。' });
+      parent.children.splice(index, 1);
+      return index;
+    }
     if (node.tagName === 'input') {
       // 原文在复选框后已有一个空格，这里不再补，避免出现两个空格。
       const next = parent.children[index + 1];
@@ -390,13 +410,6 @@ function dialect(tree: Root, platform: 'wechat' | 'zhihu', degraded: Warning[]) 
         node.children = node.children.filter((c) => c.type !== 'text' || !!c.value.trim());
       if (node.tagName === 'p' && parent.type === 'element' && parent.tagName === 'li')
         node.tagName = 'span';
-      if (node.tagName === 'table') {
-        node.properties = { ...node.properties, border: 1, cellPadding: '8', bgColor: '#ffffff' };
-        const row = node.children
-          .flatMap((c) => (c.type === 'element' ? c.children : []))
-          .find((c) => c.type === 'element' && c.tagName === 'tr') as Element | undefined;
-        node.properties.style = `min-width:${Math.max(280, (row?.children.filter((c) => c.type === 'element').length || 1) * 100)}px`;
-      }
     } else {
       if (node.tagName === 'h1') node.tagName = 'h2';
       if (/^h[4-6]$/.test(node.tagName)) {
@@ -437,11 +450,9 @@ export function render(
   const tree = structuredClone(prepared.tree);
   const degraded: Warning[] = [];
   dialect(tree, prepared.platform, degraded);
+  if (prepared.platform === 'wechat') movePunctuation(tree);
   if (prepared.platform === 'wechat') {
-    flattenLists(tree);
-    movePunctuation(tree);
-  }
-  if (prepared.platform === 'wechat') {
+    const theme = themes.find((t) => t.id === opts.theme) || themes[0];
     visit(tree, 'element', (node) => {
       if (node.tagName !== 'pre') return;
       const code = node.children.find((n) => n.type === 'element' && n.tagName === 'code') as
@@ -451,13 +462,17 @@ export function render(
       const lang = String(code.properties.className || '').replace(/^language-/, '');
       if (lowlight.registered(lang))
         code.children = lowlight.highlight(lang, rawText(code)).children as Element['children'];
+      if (theme.codeDots) node.children.unshift(codeDots());
     });
-    tree.children = [element('section', tree.children, { className: ['jz'] })];
-    inlineTheme(tree, opts.theme || 'sspai');
+    const root = element('section', tree.children, { className: ['jz'] });
+    tree.children = [root];
+    inlineTheme(tree, theme.id);
+    dropInherited(root);
     // 微信保留预格式行首空格，并用独立滚动容器承载代码/表格。
     visit(tree, 'element', (node, index, parent) => {
       if (!parent || index === undefined || !['pre', 'table'].includes(node.tagName)) return;
       if (parent.type === 'element' && parent.properties.dataScroll) return;
+      if (node.tagName === 'table') compactTable(node);
       // 滚动容器自成格式化上下文，内部外边距不再与前后段落合并；把外边距交给容器，间距才与其他块一致。
       let margin = '';
       node.properties.style = [

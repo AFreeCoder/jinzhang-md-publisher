@@ -23,11 +23,14 @@ const snapshot = (content: string): Snapshot => ({
 const env = (extra: Partial<BuildEnv> = {}): BuildEnv => ({
   vault,
   basePath: '/vault',
-  config: { ...defaultConfig(), author: '作者甲' },
-  templates: {
-    wechat: { header: '> 作者 {{author}}，{{date}}', footer: '感谢阅读《{{title}}》' },
-    zhihu: { header: '', footer: '' },
-  },
+  config: (() => {
+    const config = defaultConfig();
+    config.author = '作者甲';
+    config.wechat.start = { slogan: '持续更新', producerName: '示例号' };
+    config.wechat.card = { ...config.wechat.card, enabled: true, mpId: 'Mz==', nickname: '示例号' };
+    return config;
+  })(),
+  footers: { wechat: '感谢阅读《{{title}}》，{{date}}', zhihu: '知乎结尾 {{author}}' },
   resolveEmbed: (link) => (link === 'a.png' ? { path: 'assets/a.png', isImage: true } : null),
   today: '2026-09-30',
   ...extra,
@@ -42,15 +45,24 @@ describe('从编辑器快照排版', () => {
     const { result } = built;
     expect(result.title).toBe('测试文章');
     expect(result.html).not.toContain('<h1');
-    expect(result.text).toContain('作者 作者甲，2026-09-30');
-    expect(result.text).toContain('感谢阅读《测试文章》');
+    // 开头样式一：宣言、名片、作者、出品；结尾样式一：结尾文字再跟一张名片。
+    expect(result.text).toMatch(/^持续更新\s*作者｜作者甲\s*出品｜公众号：示例号/);
+    expect(result.text).toContain('感谢阅读《测试文章》，2026-09-30');
+    expect(result.html.match(/<mp-common-profile [^>]*data-id="Mz=="/g)).toHaveLength(2);
+    expect(result.html).not.toContain('font-size:12px;letter-spacing:1px');
     expect(result.text).toContain('正文 链接');
     expect(result.warnings.map((w) => w.code)).not.toContain('FRONTMATTER_IGNORED');
     expect(result.warnings.map((w) => w.code)).not.toContain('UNSUPPORTED_SYNTAX');
     expect(result.images).toHaveLength(1);
     expect(result.images[0].source).toMatchObject({ kind: 'blob', assetId: 'assets/a.png' });
     expect(result.cover?.original).toBe('jz-local://vault/assets/a.png');
-    expect(built.variables).toEqual({ date: '2026-09-30', author: '作者甲' });
+    expect(built.fixed).toEqual({ header: true, footer: true });
+    expect(built.variables).toEqual({
+      date: '2026-09-30',
+      author: '作者甲',
+      slogan: '持续更新',
+      producer: '示例号',
+    });
   });
   it('共享状态里以绝对路径保存的封面走磁盘分支；知乎按自己的开关与模板', async () => {
     const built = await buildArticle(
@@ -62,7 +74,11 @@ describe('从编辑器快照排版', () => {
       original: '/Users/me/封面.png',
       source: { kind: 'blob', assetId: '/Users/me/封面.png' },
     });
+    expect(built.fixed).toEqual({ header: false, footer: true });
     expect(built.result.text).not.toContain('感谢阅读');
+    expect(built.result.text).not.toContain('持续更新');
+    expect(built.result.text).toContain('知乎结尾 作者甲');
+    expect(built.result.html).not.toContain('mp-common-profile');
     const missing = await buildArticle(snapshot('![[缺.png]]'), 'wechat', env());
     expect(missing.result.warnings).toContainEqual(
       expect.objectContaining({ code: 'IMAGE_MISSING', ref: '缺.png' }),

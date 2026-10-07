@@ -376,8 +376,12 @@ h1 em {
   font-size: 10px;
   letter-spacing: 2px;
 }
+/* 卡片标题用对应主题的强调色，与 core 的 themes 列表一致。 */
+.sample:nth-child(1) {
+  --red: #d71a1b;
+}
 .sample:nth-child(2) {
-  --red: #526d64;
+  --red: #07c160;
 }
 .sample:nth-child(3) {
   --red: #51667d;

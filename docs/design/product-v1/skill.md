@@ -23,7 +23,7 @@
 | `jinzhang config show` / `path` / `validate` | | 无 | 脱敏状态、目录位置、结构与模板变量校验；没有任何参数能打印凭证 |
 | `jinzhang config set <key> <value>` | | 写公共配置 | 点路径，如 `wechat.card.nickname`、`fixed.wechat.footer`；凭证类键拒绝从命令行参数读取 |
 | `jinzhang config wechat` | `--stdin` | 写凭证 | 交互式不回显输入 AppID 与 AppSecret，或从 stdin 读 JSON；写 `credentials.json` |
-| `jinzhang config edit <wechat\|zhihu> <header\|footer>` | | 打开模板文件 | 用 `$EDITOR` 或系统默认程序打开对应模板，改完保存即生效；这是命令行修改固定内容文案的正式入口 |
+| `jinzhang config edit <wechat\|zhihu> footer` | | 打开模板文件 | 用 `$EDITOR` 或系统默认程序打开对应平台的结尾 Markdown，改完保存即生效；公众号的开头是固定的「开头样式一」，字段用 `config set` 改，知乎没有开头（architecture.md 第 6 节） |
 | `jinzhang cover set <file> <img>` / `cover clear <file>` | | 写 `state.articles` | 为某篇文章持久设置或清除单独的封面，与插件共用 |
 | `jinzhang wechat ip` | | 无 | 经当前公众号传输探测出口 IP，附白名单后台路径 |
 | `jinzhang zhihu login` | `--cookie`（从 stdin 读） | 写登录态文件 | 默认扫码；`--cookie` 粘贴浏览器导出的 cookie 串。登录后调 `/api/v4/me` 记录用户名 |
@@ -123,7 +123,7 @@ push <file> --platform wechat,zhihu --yes --digest <值> --json
 
 - `config init` 可跳过每一步，只创建缺失文件：作者名（可选，供 `{{author}}` 变量）、默认主题、默认推送平台、公众号 AppID 与 AppSecret（不回显）并随即探测出口 IP、是否现在登录知乎；结束时打印下一步命令
 - 配置按动作按需引导：`push --platform wechat` 发现缺公众号凭证时只引导公众号；`preview`、`render` 不需要任何账号；`copy --platform wechat` 不需要账号
-- 固定内容改文案用 `config edit`，模板是 `templates/<platform>/header.md`、`footer.md` 的 Markdown 文件；`config set` 改开关与名片字段。本机配置表单一期不做
+- 固定内容与插件共用一套规则（architecture.md 第 6 节）：结尾 Markdown 用 `config edit` 改，文件是 `templates/<platform>/footer.md`；`config set` 改开头样式一的字段（`wechat.start.slogan`、`author`、`wechat.start.producerName`）、各开关与名片字段（含 `wechat.card.enabled`）。本机配置表单一期不做
 
 ## 7. 知乎登录
 
@@ -233,3 +233,4 @@ SKILL.md 结构：
 - 2026-09-10 合并 Codex 评审（issue #6）：`push --dry-run` 出 `digest`、`--yes --digest` 执行、`STATE_CHANGED`；`check` 去掉 `--strict`、加 `--offline` 与 `mode`、`unverified`、`effects`、`readiness`；`partial` 与退出码 5、参数错误 64、逐平台 `verification`、`nextActions`；`drafts bind` 与 `drafts remote`；多平台逐平台阻塞；需求 20 映射改为正常 `push`；预览按平台与内容哈希缓存并内嵌图片；Node 22 以上、24 首测，sharp 保留为运行时依赖，别名不预先承诺；`config edit` 代替本机表单。按「一期先可用」收窄：macOS 之外不做富文本剪贴板，知乎复制要求登录，不接中转服务，不做跨进程投递互斥
 - 2026-09-10 评审收敛，状态改为已评审，沉淀到仓库
 - 2026-09-30 按插件设计定稿（issue #12）同步：`./node` 只放与插件共用的文件读写，sharp 编解码与 undici 代理放在命令行包。排期上插件先做（issue #4 快照 5），`./publish` 与 `./node` 随插件落地，命令行实现时直接复用
+- 2026-10-07 固定内容随 architecture.md 第 6 节调整（用户要求与 my-toolbox 一致，issue #12）：`config edit` 只编辑两个平台的结尾 Markdown，公众号开头改为固定的开头样式一，字段与名片开关走 `config set`

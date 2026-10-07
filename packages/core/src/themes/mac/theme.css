@@ -99,7 +99,8 @@
   list-style: none;
   margin-left: -20px;
 }
-.jz .jz-subitem {
+.jz li ul,
+.jz li ol {
   margin: 4px 0;
 }
 .jz img {
@@ -114,9 +115,14 @@
   font-size: 13px;
   margin: 18px 0;
 }
+/* 单元格样式不会内联到成品：方言把边框、内边距与表头底色读出来写成表格属性。 */
+.jz th,
+.jz td {
+  padding: 8px;
+  border: 1px solid #dddddd;
+}
 .jz th {
-  background: #f2f3f0;
-  font-weight: 600;
+  background-color: #f2f3f0;
 }
 .jz hr {
   border: 0;

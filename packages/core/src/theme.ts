@@ -3,15 +3,37 @@ import { selectAll } from 'hast-util-select';
 import type { Element, Root } from 'hast';
 import type { ThemeId } from './types';
 import { themeSources } from './themes/generated';
+/** `codeDots`：代码块顶部是否带红黄绿三个圆点。 */
 export const themes = [
-  { id: 'sspai', name: '少数派', accent: '#ac493a', description: '温润克制，让重点被看见。' },
-  { id: 'native', name: '公众号原生', accent: '#526d64', description: '自然留白，舒展长文阅读。' },
-  { id: 'mac', name: 'Mac', accent: '#51667d', description: '层次清楚，适合技术表达。' },
+  {
+    id: 'sspai',
+    name: '少数派',
+    accent: '#d71a1b',
+    description: '经典红色标识，重点一眼可见。',
+    codeDots: true,
+  },
+  {
+    id: 'native',
+    name: '公众号原生',
+    accent: '#07c160',
+    description: '官方绿色底纹，稳妥的传统阅读感。',
+    codeDots: true,
+  },
+  {
+    id: 'mac',
+    name: 'Mac',
+    accent: '#51667d',
+    description: '层次清楚，适合技术表达。',
+    codeDots: false,
+  },
 ] as const;
 export function inlineTheme(root: Root, id: ThemeId) {
   const tree = css.parse(themeSources[id] || themeSources.sspai);
   let order = 0;
-  const merged = new Map<Element, Map<string, { value: string; rank: number }>>();
+  const merged = new Map<
+    Element,
+    Map<string, { value: string; rank: number; important: boolean }>
+  >();
   css.walk(tree, (node) => {
     if (node.type === 'Atrule') throw new Error('主题不支持 @ 规则');
     if (node.type !== 'Rule' || node.prelude.type !== 'SelectorList') return;
@@ -47,16 +69,20 @@ export function inlineTheme(root: Root, id: ThemeId) {
           else element.children.push(span);
           element = span;
         }
-        const values = merged.get(element) || new Map<string, { value: string; rank: number }>();
+        const values =
+          merged.get(element) ||
+          new Map<string, { value: string; rank: number; important: boolean }>();
         if (!merged.has(element) && element.properties.style) {
           const inline = css.parse(String(element.properties.style), {
             context: 'declarationList',
           });
           css.walk(inline, (d) => {
             if (d.type === 'Declaration')
+              // 作者在原始 HTML 里写的内联样式是明确的意图，高于主题规则，包括主题里的 !important。
               values.set(d.property, {
                 value: css.generate(d.value),
-                rank: d.important ? 2e9 : 1e8,
+                rank: d.important ? 3e9 : 2e9,
+                important: !!d.important,
               });
           });
         }
@@ -68,12 +94,16 @@ export function inlineTheme(root: Root, id: ThemeId) {
             values.set(d.name, {
               value: d.value.replace(/#000(?:000)?\b/g, '#292c29').replace(/\b0px\b/g, '0'),
               rank,
+              important: d.important,
             });
         }
       }
     }
   });
   for (const [element, values] of merged) {
-    element.properties.style = [...values].map(([name, v]) => `${name}:${v.value}`).join(';');
+    // 主题里的 !important 原样带到成品，用来压住平台编辑器自带的样式。
+    element.properties.style = [...values]
+      .map(([name, v]) => `${name}:${v.value}${v.important ? '!important' : ''}`)
+      .join(';');
   }
 }

@@ -47,6 +47,25 @@ describe('公共配置', () => {
     expect(broken.theme).toBe('sspai');
     expect(broken.targets).toEqual(['zhihu']);
     expect(broken.fixed.wechat).toEqual({ header: true, footer: true });
+    expect(broken.wechat.start).toEqual({ slogan: '', producerName: '' });
+    expect(broken.wechat.card.enabled).toBe(false);
+    await writeFile(
+      files.config.file,
+      JSON.stringify({
+        wechat: {
+          card: { enabled: true, mpId: 'Mz==', nickname: 1 },
+          start: { slogan: ' 宣言 ', producerName: 2 },
+        },
+      }),
+    );
+    const { wechat } = await files.config.read();
+    expect(wechat.card).toMatchObject({
+      enabled: true,
+      mpId: 'Mz==',
+      nickname: '',
+      serviceType: 1,
+    });
+    expect(wechat.start).toEqual({ slogan: '宣言', producerName: '' });
   });
   it('更新深合并到原始内容，保留命令行写入的未知字段', async () => {
     await mkdir(dir, { recursive: true });

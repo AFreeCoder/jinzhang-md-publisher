@@ -1,150 +1,280 @@
+/* 字体名不加引号：引号写进 style 属性要转义成实体，白占字符。 */
 .jz {
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
-  font-size: 15px;
-  line-height: 1.9;
-  color: #343a34;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 0 48px;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    Segoe UI,
+    Roboto,
+    Helvetica Neue,
+    Arial,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.7 !important;
+  color: #333333 !important;
+  background-color: #ffffff !important;
   word-wrap: break-word;
 }
-.jz p {
-  margin: 16px 0;
-}
 .jz h1 {
-  font-size: 23px;
-  line-height: 1.5;
-  margin: 28px 0 18px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
+  color: #111 !important;
+  line-height: 1.3 !important;
+  margin: 38px 0 16px;
+  letter-spacing: -0.015em;
 }
 .jz h2 {
-  font-size: 19px;
-  color: #526d64;
-  margin: 28px 0 18px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e6e5df;
+  font-size: 26px;
+  font-weight: 600;
+  color: #111 !important;
+  line-height: 1.35 !important;
+  margin: 32px 0 16px;
 }
 .jz h3 {
-  font-size: 17px;
-  color: #526d64;
-  margin: 23px 0 14px;
+  font-size: 21px;
+  font-weight: 600;
+  color: #333333 !important;
+  line-height: 1.4 !important;
+  margin: 28px 0 14px;
 }
 .jz h4,
 .jz h5,
 .jz h6 {
-  font-size: 16px;
-  margin: 20px 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333333 !important;
+  line-height: 1.4 !important;
+  margin: 24px 0 12px;
+}
+.jz p {
+  margin: 18px 0 !important;
+  line-height: 1.7 !important;
+  color: #333333 !important;
 }
 .jz strong {
-  font-weight: 600;
-  color: #526d64;
+  font-weight: 700;
+  color: #07c160 !important;
+  background-color: rgba(7, 193, 96, 0.08);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.jz em {
+  font-style: italic;
+  color: #666666 !important;
 }
 .jz a {
-  color: #526d64;
-  text-decoration: underline;
-}
-.jz blockquote {
-  margin: 22px 0;
-  padding: 12px 16px;
-  border-left: 3px solid #526d64;
-  background: #f7f7f4;
-  color: #70766a;
-}
-.jz blockquote p,
-.jz blockquote ul,
-.jz blockquote ol {
-  margin: 10px 0;
-}
-.jz blockquote p:first-child,
-.jz blockquote ul:first-child,
-.jz blockquote ol:first-child {
-  margin-top: 0;
-}
-.jz blockquote p:last-child,
-.jz blockquote ul:last-child,
-.jz blockquote ol:last-child {
-  margin-bottom: 0;
-}
-.jz pre {
-  font-family: Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.7;
-  white-space: pre;
-  word-wrap: normal;
-  margin: 20px 0;
-  padding: 16px 18px;
-  background: #f5f6f5;
-  color: #39443f;
-}
-.jz code {
-  font-family: Menlo, Consolas, monospace;
-  font-size: 13px;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: #eef3f0;
-  color: #47625a;
-}
-.jz pre code {
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #39443f;
+  color: #07c160 !important;
+  text-decoration: none;
+  border-bottom: 1px solid #07c160;
+  padding-bottom: 1px;
 }
 .jz ul,
 .jz ol {
-  padding-left: 24px;
   margin: 16px 0;
+  padding-left: 28px;
+}
+.jz ul {
+  list-style-type: disc !important;
+  list-style-position: outside;
+}
+.jz ul ul {
+  list-style-type: circle !important;
+}
+.jz ul ul ul {
+  list-style-type: square !important;
+}
+.jz ol {
+  list-style-type: decimal !important;
+  list-style-position: outside;
 }
 .jz li {
-  margin: 7px 0;
+  margin: 8px 0;
+  line-height: 1.7 !important;
+  color: #333333 !important;
 }
 .jz .task-list-item {
   list-style: none;
-  margin-left: -20px;
+  margin-left: -24px;
 }
-.jz .jz-subitem {
-  margin: 4px 0;
+.jz blockquote {
+  margin: 24px 0;
+  padding: 16px 20px;
+  background-color: #f0f7f2 !important;
+  border-left: 4px solid #07c160;
+  color: #555555 !important;
+  border-radius: 4px;
+}
+.jz blockquote > p:first-child {
+  margin: 0 0 18px !important;
+}
+.jz blockquote > p:last-child {
+  margin: 18px 0 0 !important;
+}
+.jz blockquote > p:first-child:last-child {
+  margin: 0 !important;
+}
+.jz code {
+  font-family:
+    SF Mono,
+    Consolas,
+    monospace;
+  padding: 3px 6px;
+  background-color: #f0f7f2 !important;
+  color: #07c160 !important;
+  border-radius: 4px;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+.jz pre {
+  margin: 24px 0;
+  padding: 20px;
+  background-color: #f0f7f2 !important;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  font-variant-ligatures: none;
+  tab-size: 2;
+}
+.jz pre code {
+  display: block;
+  font-family: monospace;
+  padding: 0;
+  background-color: transparent !important;
+  color: inherit !important;
+  border-radius: 0;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-style: normal !important;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.jz hr {
+  margin: 36px auto;
+  border: none;
+  height: 1px;
+  background-color: #eaeaea !important;
+  width: 100%;
 }
 .jz img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 20px auto;
+  margin: 30px auto !important;
+  border-radius: 14px !important;
+  width: 100%;
+  padding: 8px !important;
+  box-sizing: border-box;
+  box-shadow:
+    0 16px 34px rgba(15, 23, 42, 0.22),
+    0 4px 10px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(15, 23, 42, 0.12);
 }
+/* 单元格样式不会内联到成品：方言把边框、内边距与表头底色读出来写成表格属性。 */
 .jz table {
+  width: 100%;
+  margin: 24px 0;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 13px;
-  margin: 18px 0;
+  font-size: 15px;
 }
 .jz th {
-  background: #f2f3f0;
-  font-weight: 600;
+  background-color: #f0f7f2;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #d8e8dc;
+  color: #333333;
 }
-.jz hr {
-  border: 0;
-  border-top: 1px solid #dfdfd8;
-  margin: 28px 0;
+.jz td {
+  padding: 12px;
+  border: 1px solid #d8e8dc;
+  color: #333333;
+}
+.jz h1 strong,
+.jz h2 strong,
+.jz h3 strong,
+.jz h4 strong,
+.jz h5 strong,
+.jz h6 strong {
+  font-weight: 700;
+  color: inherit !important;
+  background-color: transparent !important;
+}
+.jz h1 em,
+.jz h2 em,
+.jz h3 em,
+.jz h4 em,
+.jz h5 em,
+.jz h6 em {
+  font-style: italic;
+  color: inherit !important;
+  background-color: transparent !important;
+}
+.jz h1 a,
+.jz h2 a,
+.jz h3 a,
+.jz h4 a,
+.jz h5 a,
+.jz h6 a {
+  color: inherit !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid currentColor !important;
+  background-color: transparent !important;
+}
+.jz h1 code,
+.jz h2 code,
+.jz h3 code,
+.jz h4 code,
+.jz h5 code,
+.jz h6 code {
+  color: inherit !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
 }
 .jz sup {
   font-size: 11px;
-  color: #526d64;
+  color: #07c160;
+}
+.jz .hljs-comment,
+.jz .hljs-quote {
+  color: #6a737d;
+  font-style: normal;
 }
 .jz .hljs-keyword,
 .jz .hljs-selector-tag {
-  color: #a04b57;
+  color: #d73a49;
+  font-weight: 600;
 }
-.jz .hljs-string,
-.jz .hljs-attr {
-  color: #58775b;
-}
-.jz .hljs-number,
-.jz .hljs-literal {
-  color: #ab7245;
-}
-.jz .hljs-comment {
-  color: #90948d;
+.jz .hljs-string {
+  color: #032f62;
 }
 .jz .hljs-title,
+.jz .hljs-section {
+  color: #6f42c1;
+  font-weight: 600;
+}
+.jz .hljs-type {
+  color: #005cc5;
+  font-weight: 600;
+}
+.jz .hljs-number,
+.jz .hljs-literal,
 .jz .hljs-built_in {
-  color: #4f6f91;
+  color: #005cc5;
+}
+.jz .hljs-variable,
+.jz .hljs-template-variable {
+  color: #e36209;
+}
+.jz .hljs-tag,
+.jz .hljs-name {
+  color: #22863a;
+}
+.jz .hljs-attr {
+  color: #6f42c1;
 }
 
 .jz .jz-header {
@@ -154,11 +284,16 @@
   color: #8a7162;
 }
 .jz .jz-header p {
-  margin: 6px 0;
+  margin: 6px 0 !important;
+  color: #8a7162 !important;
 }
 .jz .jz-footer {
   font-size: 12px;
   text-align: center;
   color: #89917f;
   margin: 28px 0;
+}
+.jz .jz-footer p {
+  margin: 16px 0 !important;
+  color: #89917f !important;
 }
