@@ -1,7 +1,7 @@
 {
   "id": "jinzhang",
   "name": "锦章",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.5.7",
   "description": "Markdown 发布助手：预览公众号与知乎成品，一键推送到两个平台的草稿箱。",
   "author": "AFreeCoder",

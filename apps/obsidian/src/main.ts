@@ -141,9 +141,9 @@ export default class JinzhangPlugin extends Plugin {
       vault: this.vault,
       basePath: this.basePath,
       config,
-      templates: {
-        wechat: await this.files.templates.readAll('wechat'),
-        zhihu: await this.files.templates.readAll('zhihu'),
+      footers: {
+        wechat: await this.files.templates.read('wechat', 'footer'),
+        zhihu: await this.files.templates.read('zhihu', 'footer'),
       },
       cover: typeof cover === 'string' && cover ? cover : undefined,
       resolveEmbed: (linkpath, notePath) => {

@@ -9,7 +9,7 @@ import {
 } from '@jinzhang/core/publish';
 import type JinzhangPlugin from './main';
 import { PLATFORM_NAMES } from './push';
-const PARTS = { header: '开头', footer: '结尾' } as const;
+const FAKEID_GUIDE = 'https://github.com/doocs/md/blob/main/docs/mp-card.md';
 /**
  * 设置页（设计第 10 节）：除界面偏好外读写的都是配置目录里的文件，每次打开重新读取，
  * 与命令行的修改互通。凭证只写不回显。
@@ -29,13 +29,12 @@ export class JinzhangSettingTab extends PluginSettingTab {
     const files = this.plugin.files;
     let config: JinzhangConfig;
     let credentials: Awaited<ReturnType<typeof readCredentials>>;
-    const templates = new Map<string, string>();
+    const footers = { wechat: '', zhihu: '' };
     try {
       config = await files.config.read();
       credentials = await readCredentials(this.plugin.host);
       for (const platform of ['wechat', 'zhihu'] as const)
-        for (const part of ['header', 'footer'] as const)
-          templates.set(`${platform}-${part}`, await files.templates.read(platform, part));
+        footers[platform] = await files.templates.read(platform, 'footer');
     } catch (error) {
       if (token !== this.rendering) return;
       containerEl.empty();
@@ -178,45 +177,132 @@ export class JinzhangSettingTab extends PluginSettingTab {
             await update({ targets });
           }),
         );
-    new Setting(containerEl)
-      .setName('作者名')
-      .setDesc('模板变量 {{author}} 的取值')
-      .addText((text) =>
-        text
-          .setValue(config.author)
-          .onChange((value) => later('author', () => update({ author: value.trim() }))),
+    /** 单行文字设置：停止输入后写进公共配置。 */
+    const field = (
+      name: string,
+      desc: string | DocumentFragment,
+      value: string,
+      patch: (value: string) => Parameters<typeof files.config.update>[0],
+    ) =>
+      new Setting(containerEl)
+        .setName(name)
+        .setDesc(desc)
+        .addText((text) =>
+          text.setValue(value).onChange((next) => later(name, () => update(patch(next.trim())))),
+        );
+    /** 结尾 Markdown 保存在配置目录的模板文件里，与命令行共用。 */
+    const footer = (platform: Platform) => {
+      const area = new TextAreaComponent(containerEl);
+      area.inputEl.addClass('jinzhang-template');
+      area.setValue(footers[platform]);
+      area.onChange((value) =>
+        later(`${platform}-footer`, async () => {
+          await files.templates.write(platform, 'footer', value);
+          this.plugin.refreshViews();
+        }),
       );
-    containerEl.createEl('h3', { text: '固定内容' });
+    };
+    containerEl.createEl('h3', { text: '公众号文章样式' });
     containerEl.createDiv({
       cls: 'setting-item-description',
-      text: '开头与结尾是 Markdown，允许内嵌 HTML；变量 {{title}}、{{date}}、{{author}}，缺值的行不显示。知乎只保留文字、图片与链接。',
+      text: '公众号正文按「开头样式 → 正文 → 结尾样式」组合，预览、复制与推送共用。',
     });
-    for (const platform of ['wechat', 'zhihu'] as const)
-      for (const part of ['header', 'footer'] as const) {
-        new Setting(containerEl)
-          .setName(`${PLATFORM_NAMES[platform]}${PARTS[part]}`)
-          .addToggle((toggle) =>
-            toggle
-              .setValue(config.fixed[platform][part])
-              .onChange(async (value) => update({ fixed: { [platform]: { [part]: value } } })),
-          );
-        const area = new TextAreaComponent(containerEl);
-        area.inputEl.addClass('jinzhang-template');
-        area.setValue(templates.get(`${platform}-${part}`) ?? '');
-        area.onChange((value) =>
-          later(`${platform}-${part}`, async () => {
-            await files.templates.write(platform, part, value);
-            this.plugin.refreshViews();
-          }),
-        );
-      }
+    new Setting(containerEl)
+      .setName('开头样式一')
+      .setDesc('依次显示顶部宣言、账号名片、作者、出品公众号和分隔线；没填的行不显示。')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(config.fixed.wechat.header)
+          .onChange(async (value) => update({ fixed: { wechat: { header: value } } })),
+      );
+    field('顶部宣言', '居中显示在文章最上方的一句话', config.wechat.start.slogan, (slogan) => ({
+      wechat: { start: { slogan } },
+    }));
+    field('作者', '显示为「作者｜…」，也是结尾里 {{author}} 的取值', config.author, (author) => ({
+      author,
+    }));
+    field(
+      '出品公众号',
+      '显示为「出品｜公众号：…」',
+      config.wechat.start.producerName,
+      (producerName) => ({ wechat: { start: { producerName } } }),
+    );
+    new Setting(containerEl)
+      .setName('结尾样式一')
+      .setDesc(
+        '先显示下面的结尾 Markdown，再显示账号名片。允许内嵌 HTML；可以用 {{title}}、{{date}}、{{author}}，缺值的行不显示。',
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(config.fixed.wechat.footer)
+          .onChange(async (value) => update({ fixed: { wechat: { footer: value } } })),
+      );
+    footer('wechat');
+    new Setting(containerEl)
+      .setName('账号名片')
+      .setDesc(
+        '在已启用的开头、结尾样式里显示名片。位置由样式决定：两种样式都启用时各显示一张，都不启用时不插入。公众号 ID 与名称必填，预览里用占位块示意。',
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(config.wechat.card.enabled)
+          .onChange(async (value) => update({ wechat: { card: { enabled: value } } })),
+      );
+    field(
+      '公众号 ID（fakeid）',
+      createFragment((fragment) => {
+        fragment.createEl('a', { text: '如何从公众号后台获取 fakeid', href: FAKEID_GUIDE });
+      }),
+      config.wechat.card.mpId,
+      (mpId) => ({ wechat: { card: { mpId } } }),
+    );
+    field('公众号名称', '', config.wechat.card.nickname, (nickname) => ({
+      wechat: { card: { nickname } },
+    }));
+    field('头像地址', '', config.wechat.card.headImg, (headImg) => ({
+      wechat: { card: { headImg } },
+    }));
+    field('公众号简介', '', config.wechat.card.signature, (signature) => ({
+      wechat: { card: { signature } },
+    }));
+    new Setting(containerEl).setName('账号类型').addDropdown((dropdown) =>
+      dropdown
+        .addOption('1', '公众号')
+        .addOption('2', '服务号')
+        .setValue(config.wechat.card.serviceType === 2 ? '2' : '1')
+        .onChange(async (value) => update({ wechat: { card: { serviceType: Number(value) } } })),
+    );
+    new Setting(containerEl).setName('认证状态').addDropdown((dropdown) =>
+      dropdown
+        .addOption('0', '未认证')
+        .addOption('1', '个人认证')
+        .addOption('2', '企业认证')
+        .setValue(
+          ['1', '2'].includes(String(config.wechat.card.verifyStatus))
+            ? String(config.wechat.card.verifyStatus)
+            : '0',
+        )
+        .onChange(async (value) => update({ wechat: { card: { verifyStatus: Number(value) } } })),
+    );
+    containerEl.createEl('h3', { text: '知乎文章样式' });
+    new Setting(containerEl)
+      .setName('默认结尾')
+      .setDesc(
+        '追加在知乎正文之后，只保留文字、图片与链接；可以用 {{title}}、{{date}}、{{author}}，缺值的行不显示。',
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(config.fixed.zhihu.footer)
+          .onChange(async (value) => update({ fixed: { zhihu: { footer: value } } })),
+      );
+    footer('zhihu');
+    containerEl.createEl('h3', { text: '高级' });
     new Setting(containerEl)
       .setName('模板目录')
-      .setDesc(files.templates.path('wechat', 'header').replace(/[\\/]wechat[\\/]header\.md$/, ''))
+      .setDesc('两段结尾 Markdown 保存在这里的 wechat/footer.md 与 zhihu/footer.md。')
       .addButton((button) =>
         button.setButtonText('打开模板目录').onClick(() => this.plugin.openTemplatesDir()),
       );
-    containerEl.createEl('h3', { text: '高级' });
     new Setting(containerEl)
       .setName('配置目录')
       .setDesc(
