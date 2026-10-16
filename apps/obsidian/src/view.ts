@@ -84,6 +84,10 @@ export class PreviewView extends ItemView {
       cls: 'jinzhang-frame',
       attr: { sandbox: 'allow-same-origin', title: '锦章预览' },
     });
+    // 链接在 iframe 里跳转会把预览换成外站页面，改为交给系统浏览器打开。
+    this.frame.addEventListener('load', () =>
+      this.frame.contentDocument?.addEventListener('click', (event) => this.openLink(event)),
+    );
     this.diagnostics = root.createDiv({ cls: 'jinzhang-diagnostics' });
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', (leaf) => {
@@ -121,6 +125,21 @@ export class PreviewView extends ItemView {
       this.app.workspace.getActiveFile();
     this.syncControls();
     this.schedule(0);
+    // 启动时从工作区恢复的预览先于布局就绪打开，那时还取不到当前笔记，就绪后再取一次。
+    this.app.workspace.onLayoutReady(() => {
+      if (this.file) return;
+      const recent = this.app.workspace.getMostRecentLeaf()?.view;
+      this.file = recent instanceof MarkdownView ? recent.file : this.app.workspace.getActiveFile();
+      if (this.file) this.schedule(0);
+    });
+  }
+  /** 页内锚点照常跳转；http(s) 链接用系统浏览器打开，其余链接不响应。 */
+  private openLink(event: MouseEvent) {
+    const link = (event.target as Element | null)?.closest?.('a[href]');
+    const href = link?.getAttribute('href') ?? '';
+    if (!link || href.startsWith('#')) return;
+    event.preventDefault();
+    if (/^https?:\/\//i.test(href)) window.open(href);
   }
   async onClose() {
     window.clearTimeout(this.timer);
@@ -199,7 +218,9 @@ export class PreviewView extends ItemView {
         allocated.forEach((url) => URL.revokeObjectURL(url));
         return;
       }
-      const scroll = this.shown === file.path ? (this.frame.contentWindow?.scrollY ?? 0) : 0;
+      // iframe 被导航到别处（跨域）时 contentDocument 为 null，读不到滚动位置就从顶部开始，重设 srcdoc 后预览恢复。
+      const scroll =
+        this.shown === file.path ? (this.frame.contentDocument?.defaultView?.scrollY ?? 0) : 0;
       this.shown = file.path;
       if (scroll)
         this.frame.addEventListener('load', () => this.frame.contentWindow?.scrollTo(0, scroll), {
