@@ -1,5 +1,6 @@
 import {
   DropdownComponent,
+  getFrontMatterInfo,
   ItemView,
   MarkdownView,
   setIcon,
@@ -10,8 +11,9 @@ import { escapeHtml, placeImages, themes, type ImageRef, type Platform } from '@
 import { previewDocument } from '@jinzhang/core/preview';
 import type JinzhangPlugin from './main';
 import { baseName, displayRef } from './modals/render';
+import { buildAnchors, headingKey, scrollTarget, sourceOutline } from './scroll-sync';
 export const VIEW_TYPE = 'jinzhang-preview';
-/** 右侧栏预览（设计第 5 节）：跟随当前笔记，500 毫秒防抖，晚返回的旧结果丢弃，不可见时不排版。 */
+/** 右侧栏预览（设计第 5 节）：跟随当前笔记，500 毫秒防抖，晚返回的旧结果丢弃，不可见时不排版；滚动跟随编辑器。 */
 export class PreviewView extends ItemView {
   private file: TFile | null = null;
   private frame!: HTMLIFrameElement;
@@ -30,6 +32,9 @@ export class PreviewView extends ItemView {
   private loading = false;
   /** 按图片来源缓存的 blob 地址：字节没变就沿用，就地更新时图片不用重新加载。 */
   private blobs = new Map<string, CachedBlob>();
+  /** 整页重设前的滚动位置，编辑器里没打开这篇笔记、无从跟随时用它恢复。 */
+  private restore = 0;
+  private syncFrame = 0;
   constructor(
     leaf: WorkspaceLeaf,
     private plugin: JinzhangPlugin,
@@ -94,9 +99,24 @@ export class PreviewView extends ItemView {
       const doc = this.frame.contentDocument;
       // 链接在 iframe 里跳转会把预览换成外站页面，改为交给系统浏览器打开。
       doc?.addEventListener('click', (event) => this.openLink(event));
+      // 后加载的图片会撑开页面，标题位置变了要重新对齐。
+      doc?.addEventListener('load', () => this.queueSync(), true);
       // 视图挪到别的面板时 iframe 会按 srcdoc 属性重载，就地更新过的正文要补回来。
       if (doc && this.frame.srcdoc !== this.markup) this.patch(doc, this.markup);
+      if (!this.syncScroll() && this.restore) this.frame.contentWindow?.scrollTo(0, this.restore);
+      this.restore = 0;
     });
+    // 编辑器滚动不冒泡，在捕获阶段统一接住，只理会正在预览的这篇笔记。
+    this.registerDomEvent(
+      document,
+      'scroll',
+      (event) => {
+        const target = event.target;
+        if (target instanceof Node && this.sourceView()?.contentEl.contains(target))
+          this.queueSync();
+      },
+      { capture: true, passive: true },
+    );
     this.diagnostics = root.createDiv({ cls: 'jinzhang-diagnostics' });
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', (leaf) => {
@@ -152,6 +172,7 @@ export class PreviewView extends ItemView {
   }
   async onClose() {
     window.clearTimeout(this.timer);
+    window.cancelAnimationFrame(this.syncFrame);
     this.version++;
     this.blobs.forEach((blob) => URL.revokeObjectURL(blob.url));
     this.blobs.clear();
@@ -202,13 +223,12 @@ export class PreviewView extends ItemView {
     const doc = this.frame.contentDocument;
     if (markup === this.markup && doc) return;
     this.markup = markup;
-    if (sameNote && !this.loading && doc && this.patch(doc, markup)) return;
+    if (sameNote && !this.loading && doc && this.patch(doc, markup)) {
+      this.syncScroll();
+      return;
+    }
     // iframe 被导航到别处（跨域）时 contentDocument 为 null，读不到滚动位置就从顶部开始，重设 srcdoc 后预览恢复。
-    const scroll = sameNote ? (doc?.defaultView?.scrollY ?? 0) : 0;
-    if (scroll)
-      this.frame.addEventListener('load', () => this.frame.contentWindow?.scrollTo(0, scroll), {
-        once: true,
-      });
+    this.restore = sameNote ? (doc?.defaultView?.scrollY ?? 0) : 0;
     this.loading = true;
     this.frame.srcdoc = markup;
   }
@@ -217,6 +237,59 @@ export class PreviewView extends ItemView {
     const next = new DOMParser().parseFromString(markup, 'text/html');
     if (!doc.body || next.head.innerHTML !== doc.head.innerHTML) return false;
     doc.body.innerHTML = next.body.innerHTML;
+    return true;
+  }
+  /** 正在预览的笔记所在的编辑器，优先当前活动的那个。 */
+  private sourceView() {
+    const active = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (active && active.file === this.file) return active;
+    return (
+      this.app.workspace
+        .getLeavesOfType('markdown')
+        .map((leaf) => leaf.view)
+        .find(
+          (view): view is MarkdownView => view instanceof MarkdownView && view.file === this.file,
+        ) ?? null
+    );
+  }
+  private queueSync() {
+    if (this.syncFrame) return;
+    this.syncFrame = window.requestAnimationFrame(() => {
+      this.syncFrame = 0;
+      this.syncScroll();
+    });
+  }
+  /**
+   * 把预览滚到与编辑器对应的位置（单向，预览自己滚动不影响编辑器）：编辑器顶部所在行按标题锚点插值，
+   * 编辑器滚到底时预览也到底。编辑器里没打开这篇笔记或预览还没就绪时返回 false。
+   */
+  private syncScroll() {
+    const view = this.sourceView();
+    const doc = this.frame.contentDocument;
+    const win = doc?.defaultView;
+    if (!view?.file || view.file.path !== this.shown || !doc?.body || !win || this.loading)
+      return false;
+    if (!this.containerEl.isShown()) return false;
+    const max = Math.max(0, doc.documentElement.scrollHeight - win.innerHeight);
+    const scroller = view.contentEl.querySelector<HTMLElement>(
+      view.getMode() === 'source' ? '.cm-scroller' : '.markdown-preview-view',
+    );
+    const room = scroller ? scroller.scrollHeight - scroller.clientHeight : 0;
+    if (scroller && room > 2 && scroller.scrollTop >= room - 2) {
+      win.scrollTo(0, max);
+      return true;
+    }
+    const text = view.editor.getValue();
+    const targets = [...doc.querySelectorAll('#jz-body :is(h1, h2, h3, h4, h5, h6)')].map((el) => ({
+      key: headingKey(el.textContent ?? ''),
+      y: el.getBoundingClientRect().top + win.scrollY,
+    }));
+    const anchors = buildAnchors(
+      sourceOutline(text, getFrontMatterInfo(text).contentStart),
+      targets,
+      max,
+    );
+    win.scrollTo(0, scrollTarget(view.currentMode.getScroll(), anchors));
     return true;
   }
   private async refresh() {
