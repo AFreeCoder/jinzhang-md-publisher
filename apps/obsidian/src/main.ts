@@ -54,6 +54,7 @@ export default class JinzhangPlugin extends Plugin {
     this.vault = new ObsidianVault(this.app);
     this.host = createHost(this.app, this.files, this.vault, this.basePath);
     this.registerView(VIEW_TYPE, (leaf) => new PreviewView(leaf, this));
+    this.addRibbonIcon('newspaper', '打开锦章预览', () => void this.openPreview());
     const note = (run: (file: TFile) => void) => (checking: boolean) => {
       const file = this.app.workspace.getActiveFile();
       if (!file || file.extension !== 'md') return false;
