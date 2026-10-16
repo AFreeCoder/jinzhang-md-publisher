@@ -24,7 +24,12 @@ export class PreviewView extends ItemView {
   private dirty = false;
   /** 上一次排版的笔记；同一篇重新排版时保留预览的滚动位置。 */
   private shown?: string;
-  private urls: string[] = [];
+  /** 预览当前应显示的整页文档；就地更新后与 iframe 的 `srcdoc` 属性不再一致。 */
+  private markup = '';
+  /** 整页重设 `srcdoc` 后、加载完成前为 true，期间的改动仍整页重设。 */
+  private loading = false;
+  /** 按图片来源缓存的 blob 地址：字节没变就沿用，就地更新时图片不用重新加载。 */
+  private blobs = new Map<string, CachedBlob>();
   constructor(
     leaf: WorkspaceLeaf,
     private plugin: JinzhangPlugin,
@@ -84,10 +89,14 @@ export class PreviewView extends ItemView {
       cls: 'jinzhang-frame',
       attr: { sandbox: 'allow-same-origin', title: '锦章预览' },
     });
-    // 链接在 iframe 里跳转会把预览换成外站页面，改为交给系统浏览器打开。
-    this.frame.addEventListener('load', () =>
-      this.frame.contentDocument?.addEventListener('click', (event) => this.openLink(event)),
-    );
+    this.frame.addEventListener('load', () => {
+      this.loading = false;
+      const doc = this.frame.contentDocument;
+      // 链接在 iframe 里跳转会把预览换成外站页面，改为交给系统浏览器打开。
+      doc?.addEventListener('click', (event) => this.openLink(event));
+      // 视图挪到别的面板时 iframe 会按 srcdoc 属性重载，就地更新过的正文要补回来。
+      if (doc && this.frame.srcdoc !== this.markup) this.patch(doc, this.markup);
+    });
     this.diagnostics = root.createDiv({ cls: 'jinzhang-diagnostics' });
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', (leaf) => {
@@ -144,8 +153,8 @@ export class PreviewView extends ItemView {
   async onClose() {
     window.clearTimeout(this.timer);
     this.version++;
-    this.urls.forEach((url) => URL.revokeObjectURL(url));
-    this.urls = [];
+    this.blobs.forEach((blob) => URL.revokeObjectURL(blob.url));
+    this.blobs.clear();
   }
   onResize() {
     if (this.dirty) this.schedule(0);
@@ -168,20 +177,52 @@ export class PreviewView extends ItemView {
     window.clearTimeout(this.timer);
     this.timer = window.setTimeout(() => void this.refresh(), delay);
   }
-  private blobOf(image: ImageRef, allocated: string[]) {
+  private blobOf(image: ImageRef, used: Map<string, CachedBlob>, allocated: string[]) {
     const source = image.source;
     if (source.kind === 'missing') return '';
     if (!('bytes' in source)) return source.url;
+    const key = source.assetId ?? image.original;
+    const cached = used.get(key) ?? this.blobs.get(key);
+    if (cached?.mime === source.mime && sameBytes(cached.bytes, source.bytes)) {
+      used.set(key, cached);
+      return cached.url;
+    }
     const url = URL.createObjectURL(
       new Blob([new Uint8Array(source.bytes)], { type: source.mime }),
     );
     allocated.push(url);
+    used.set(key, { bytes: source.bytes, mime: source.mime, url });
     return url;
+  }
+  /**
+   * 同一篇笔记、页面样式不变时就地换掉正文，不重载 iframe：编辑时预览不白屏、图片不重新加载、滚动位置不跳。
+   * 换笔记、换平台或页面还在加载时整页重设 `srcdoc`。
+   */
+  private show(markup: string, sameNote: boolean) {
+    const doc = this.frame.contentDocument;
+    if (markup === this.markup && doc) return;
+    this.markup = markup;
+    if (sameNote && !this.loading && doc && this.patch(doc, markup)) return;
+    // iframe 被导航到别处（跨域）时 contentDocument 为 null，读不到滚动位置就从顶部开始，重设 srcdoc 后预览恢复。
+    const scroll = sameNote ? (doc?.defaultView?.scrollY ?? 0) : 0;
+    if (scroll)
+      this.frame.addEventListener('load', () => this.frame.contentWindow?.scrollTo(0, scroll), {
+        once: true,
+      });
+    this.loading = true;
+    this.frame.srcdoc = markup;
+  }
+  /** 把整页文档的正文换进已加载的预览；头部（样式与安全策略）不同时返回 false，由调用方整页重设。 */
+  private patch(doc: Document, markup: string) {
+    const next = new DOMParser().parseFromString(markup, 'text/html');
+    if (!doc.body || next.head.innerHTML !== doc.head.innerHTML) return false;
+    doc.body.innerHTML = next.body.innerHTML;
+    return true;
   }
   private async refresh() {
     const file = this.file;
     if (!file || file.extension !== 'md') {
-      this.frame.srcdoc = '';
+      this.show('', false);
       this.diagnostics.empty();
       this.diagnostics.createDiv({ text: '打开一篇 Markdown 笔记后在这里预览。' });
       return;
@@ -192,6 +233,7 @@ export class PreviewView extends ItemView {
     }
     this.dirty = false;
     const version = ++this.version;
+    const used = new Map<string, CachedBlob>();
     const allocated: string[] = [];
     try {
       const config = await this.plugin.files.config.read();
@@ -203,7 +245,7 @@ export class PreviewView extends ItemView {
       if (version !== this.version) return;
       const { result } = built;
       const placed = await placeImages(result, {
-        put: async (image) => ({ src: this.blobOf(image, allocated) }),
+        put: async (image) => ({ src: this.blobOf(image, used, allocated) }),
       });
       let html = placed.html;
       const missing = result.images.filter((image) => image.source.kind === 'missing');
@@ -212,28 +254,27 @@ export class PreviewView extends ItemView {
           /<img\b[^>]*src=""[^>]*>/,
           `<section class="missing">图片缺失：${escapeHtml(displayRef(image.original))}</section>`,
         );
-      const coverSrc = result.cover ? this.blobOf(result.cover, allocated) || undefined : undefined;
+      const coverSrc = result.cover
+        ? this.blobOf(result.cover, used, allocated) || undefined
+        : undefined;
       const account = await this.plugin.accountName(platform, config);
       if (version !== this.version) {
         allocated.forEach((url) => URL.revokeObjectURL(url));
         return;
       }
-      // iframe 被导航到别处（跨域）时 contentDocument 为 null，读不到滚动位置就从顶部开始，重设 srcdoc 后预览恢复。
-      const scroll =
-        this.shown === file.path ? (this.frame.contentDocument?.defaultView?.scrollY ?? 0) : 0;
+      const sameNote = this.shown === file.path;
       this.shown = file.path;
-      if (scroll)
-        this.frame.addEventListener('load', () => this.frame.contentWindow?.scrollTo(0, scroll), {
-          once: true,
-        });
-      this.frame.srcdoc = previewDocument(result, html, {
-        coverSrc,
-        account,
-        date: built.variables.date,
-      });
-      const previous = this.urls;
-      this.urls = allocated;
-      window.setTimeout(() => previous.forEach((url) => URL.revokeObjectURL(url)), 1500);
+      this.show(
+        previewDocument(result, html, { coverSrc, account, date: built.variables.date }),
+        sameNote,
+      );
+      const kept = new Set([...used.values()].map((blob) => blob.url));
+      const stale = [...this.blobs.values()]
+        .map((blob) => blob.url)
+        .concat(allocated)
+        .filter((url) => !kept.has(url));
+      this.blobs = used;
+      window.setTimeout(() => stale.forEach((url) => URL.revokeObjectURL(url)), 1500);
       this.coverButton.setText(
         env.cover ? `封面：${baseName(env.cover)}` : result.cover ? '封面：正文首图' : '未设置封面',
       );
@@ -275,4 +316,15 @@ export class PreviewView extends ItemView {
         });
     }
   }
+}
+interface CachedBlob {
+  bytes: Uint8Array;
+  mime: string;
+  url: string;
+}
+function sameBytes(a: Uint8Array, b: Uint8Array) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
