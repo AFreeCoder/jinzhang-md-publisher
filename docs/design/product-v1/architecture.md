@@ -237,7 +237,7 @@ interface ImageStore {
 - 两张映射表：「原始引用 → 资源」决定文章里哪一处引用对应哪个文件，缺图时按引用逐条绑定；「内容 SHA-256 → 字节」只做去重。哈希不能替代引用绑定：用户补上一张 `a.png`，要由用户指明它对应原文的哪个引用（Codex 评审 W4）
 - 去重：同一次推送按内容 SHA-256 去重；跨次推送查 `state.images[hash][platform]`，命中则不再上传
 - 封面：优先单独指定的图；否则正文第一张图，固定开头里的图不算候选；两者都没有时公众号阻止（封面必填），知乎警告后继续。公众号封面走永久素材 `add_material`，`media_id` 按内容哈希缓存在 `state.covers`；同一张图既做封面又在正文里时，正文走 `uploadimg`，封面走永久素材，两次上传、两个结果
-- 与平台无关的 data URL 归位（按 `clipboard` 档规范化后内嵌）放在 `./browser`，网页版与插件共用。网页版的 `CopyImageStore(platform)` 已改为调用它（`DataUrlImageStore`），知乎中转那一支留在网页版，见 [web.md](web.md) 第 4 节
+- 与平台无关的 data URL 归位（按 `clipboard` 档规范化后内嵌）放在 `./browser`，网页版与插件共用。网页版的 `CopyImageStore(platform)` 已改为调用它（`DataUrlImageStore`），知乎中转：网页版在 `apps/web/lib/clipboard.ts`，插件在 `apps/obsidian/src/transit.ts`（经 `requestUrl` 带本站 Origin 调同一组接口），见 [web.md](web.md) 第 4 节；命令行仍不接中转
 - 失败信息必须带上原始引用：`IMAGE_DOWNLOAD_FAILED: ./images/a.png`
 
 ## 6. 固定内容

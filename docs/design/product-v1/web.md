@@ -120,6 +120,7 @@ core 定义 `ImageStore` 接口：`put(image, ctx)` 收到一张图片的引用�
 - `POST /api/transit/sign`：请求 `{ mime, size }`，只接受 `image/jpeg`、`image/png`，大小 1 字节到 10MB。返回 `{ url, fields, ticket, expiresAt }`：`fields` 是 OSS 表单直传（PostObject）的 V4 签名字段，策略绑定桶、对象键、`Content-Type`、`x-oss-forbid-overwrite: true`、`success_action_status: 201` 与精确的 `content-length-range [size, size]`，5 分钟过期；`ticket` 是服务端签名的票据（对象键、大小、类型与过期时间，HMAC-SHA256），供 `complete` 核对。浏览器拿 `fields` 直传 OSS，服务端不经手图片字节
 - `POST /api/transit/complete`：请求 `{ ticket }`。核对票据签名与过期；HEAD 对象，大小或类型与票据不符则删除并拒绝；再下载对象，校验魔数是 JPEG 或 PNG、像素不超过 4000 万、sharp 能完整解码，不通过则删除并拒绝。全部通过返回 24 小时有效的 V4 预签名 GET 地址（ali-oss `signatureUrlV4`，签名只对 GET 有效）。网络故障不当作文件损坏，不删除对象
 - 两个接口共用的约束：请求头 `Origin` 必须等于 `JINZHANG_ORIGIN`，否则 403；只收 JSON，请求体不超过 4KB；中转未配置返回 503 `TRANSIT_NOT_CONFIGURED`；其他异常返回 502 `TRANSIT_UNAVAILABLE`；响应不缓存。OSS 密钥与票据密钥只在服务端环境变量里
+- Obsidian 插件复制到知乎也调用这两个接口：经 Obsidian 的 `requestUrl` 在主进程发请求，带本站 Origin，直传 OSS 不受浏览器跨域限制；网关限流同样适用
 - 限流与容量在网关做，不写业务代码（生产配置见 [deployment.md](../../deployment.md)）：两个接口按 IP 共用每分钟 60 次、滚动 24 小时 1000 次上限，超出返回 429；`complete` 后端最多同时完整解码两张图，排队上限 8、最多等 5 秒；入口请求体上限 8KB。计数在网关内存里，重启清零，不用于计费
 - 说明文案分开写两件事：链接 24 小时后失效；桶内对象按生命周期规则清理，清理任务按周期执行，不承诺到期那一刻所有副本已删除
 - 代码结构：`lib/transit/service.ts` 是与 Next.js 无关的标准 `(Request) => Promise<Response>` 处理器与 `ObjectStore` 接口，`lib/transit/oss.ts` 是 ali-oss 适配，路由文件只做挂载
