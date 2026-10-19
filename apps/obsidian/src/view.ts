@@ -88,8 +88,17 @@ export class PreviewView extends ItemView {
       '复制到当前平台',
       () => this.file && this.plugin.copyNote(this.file, this.plugin.prefs.platform),
     );
-    action('list-checks', '推送前体检', () => this.file && this.plugin.preflightNote(this.file));
-    action('send', '推送到默认平台', () => this.file && this.plugin.pushNote(this.file));
+    // 工具栏三个动作都跟随当前选中的平台；同时推两个平台用命令「推送到默认平台」。
+    action(
+      'list-checks',
+      '推送前体检（当前平台，只检查不推送）',
+      () => this.file && this.plugin.preflightNote(this.file, [this.plugin.prefs.platform]),
+    );
+    action(
+      'send',
+      '推送到当前平台',
+      () => this.file && this.plugin.pushNote(this.file, [this.plugin.prefs.platform]),
+    );
     this.frame = root.createEl('iframe', {
       cls: 'jinzhang-frame',
       attr: { sandbox: 'allow-same-origin', title: '锦章预览' },
