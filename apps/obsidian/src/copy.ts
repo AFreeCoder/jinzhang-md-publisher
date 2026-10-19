@@ -1,4 +1,10 @@
-import { placeImages, type Platform, type RenderResult, type Warning } from '@jinzhang/core';
+import {
+  placeImages,
+  type ImageStore,
+  type Platform,
+  type RenderResult,
+  type Warning,
+} from '@jinzhang/core';
 import { DataUrlImageStore } from '@jinzhang/core/browser';
 import {
   createZhihuCopyStore,
@@ -12,7 +18,10 @@ export interface Placed {
   text: string;
   warnings: Warning[];
 }
-/** 复制只含正文与启用的固定内容（设计第 8 节）：公众号内嵌 data URL，知乎先上传到知乎图片接口。 */
+/**
+ * 复制只含正文与启用的固定内容（设计第 8 节）：公众号内嵌 data URL，知乎先上传到知乎图片接口。
+ * 知乎编辑器粘贴时会抓取网络图片地址转存，只有本地图片必须先用知乎账号上传；没有本地图片且未登录时保留原地址。
+ */
 export async function placeForCopy(
   result: RenderResult,
   context: PublishContext,
@@ -31,18 +40,23 @@ export async function placeForCopy(
     const placed = await placeImages(result, store);
     return { ...placed, warnings: store.warnings };
   }
-  let store;
+  let store: ImageStore & { warnings: Warning[] };
   try {
     store = await createZhihuCopyStore(
       { ...context, images: context.images ?? new ImageCache(context.host), onProgress: progress },
       result.images.length,
     );
   } catch (error) {
-    if (error instanceof PublishError && /LOGIN|CONFIG_MISSING/.test(error.detail.code))
+    if (!(error instanceof PublishError && /LOGIN|CONFIG_MISSING/.test(error.detail.code)))
+      throw error;
+    if (result.images.some((image) => 'bytes' in image.source))
       throw new Error(
-        '复制到知乎要先登录知乎（设置 → 锦章 → 知乎），图片会上传到你的知乎账号；也可以改用网页版复制。',
+        '正文里有本地图片，复制到知乎要先登录知乎（设置 → 锦章 → 知乎），图片会上传到你的知乎账号；也可以改用网页版复制。',
       );
-    throw error;
+    store = {
+      warnings: [],
+      put: async (image) => ({ src: 'url' in image.source ? image.source.url : '' }),
+    };
   }
   const placed = await placeImages(result, store);
   return { ...placed, warnings: store.warnings };
