@@ -205,18 +205,28 @@ describe('平台规则补充', () => {
 });
 
 describe('少数派与公众号原生主题的成品细节', () => {
-  it('代码块带红黄绿圆点，Mac 主题不带；代码不沿用行内代码的底色与字色', async () => {
+  it('代码块的红黄绿圆点用 SVG 画，不留会被公众号删成空行的空 span；Mac 主题不带；代码不沿用行内代码的底色与字色', async () => {
     const p = await make('行内 `code`\n\n```js\nconst x = 1;\n```');
     for (const theme of ['sspai', 'native'] as const) {
       const { html } = render(p, { theme });
       expect(html).toMatch(
-        /<pre style="[^"]*"><section style="margin-bottom:12px;white-space:nowrap">(<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#[0-9a-f]{6}(;margin-right:6px)?"><\/span>){3}<\/section><code/,
+        /<pre style="[^"]*"><section style="margin-bottom:12px"><svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="48" height="12" viewBox="0 0 48 12" style="display:block">(<circle cx="\d+" cy="6" r="6" fill="#[0-9a-f]{6}"><\/circle>){3}<\/svg><\/section><code/,
       );
+      expect(html).not.toMatch(/<span[^>]*><\/span>/);
       expect(html).toMatch(
         /<code style="[^"]*font-family:monospace[^"]*background-color:transparent!important;color:inherit!important[^"]*">/,
       );
     }
-    expect(render(p, { theme: 'mac' }).html).not.toContain('border-radius:50%');
+    expect(render(p, { theme: 'mac' }).html).not.toContain('<svg');
+  });
+  it('少数派斜体为蓝色，标题里的斜体仍跟随标题颜色', async () => {
+    const { html } = render(await make('*下一篇预告*：\n\n## 标题 *斜体*'), { theme: 'sspai' });
+    expect(html).toContain(
+      '<em style="font-style:italic;color:#3daad6!important">下一篇预告：</em>',
+    );
+    expect(html).toMatch(
+      /<h2[^>]*>标题 <em style="font-style:italic;color:inherit!important[^"]*">斜体<\/em>/,
+    );
   });
   it('表格的边框、内边距与表头底色写成属性，单元格不带样式，列对齐保留', async () => {
     const source = '| 左 | 中 | 默认 |\n| :-- | :-: | --- |\n| `a` | b | c |';
