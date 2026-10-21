@@ -16,6 +16,8 @@
 |---|---|---|
 | `/` | `app/page.tsx` | 门户首页，服务端渲染的静态页，见 2.1 |
 | `/format` | `app/format/page.tsx`、`app/format/workspace.tsx` | 在线排版页，见 2.2 |
+| `/obsidian` | `app/obsidian/page.tsx` | Obsidian 插件的下载与使用教程，构建时预渲染的静态页，见 2.4 |
+| `/downloads/jinzhang-obsidian-<版本>.zip` | `public/downloads/`（构建时生成，不进 Git） | Obsidian 插件安装包，见 2.4 |
 | `/api/transit/sign` | `app/api/transit/sign/route.ts` | 签发单个对象的上传条件，见 4.3 |
 | `/api/transit/complete` | `app/api/transit/complete/route.ts` | 校验已上传对象，发放限时读取地址，见 4.3 |
 | `/api/health` | `app/api/health/route.ts` | 返回运行版本（`APP_REVISION`）与中转配置是否齐备；齐备 200，缺项 503。只用于容器健康检查与发布核对，不代替 OSS 连通性验收 |
@@ -24,9 +26,9 @@
 
 ### 2.1 门户首页
 
-- 顶栏：品牌印章、「排版样式」锚点、GitHub、「开始排版」；窄屏保留 GitHub 与「开始排版」
+- 顶栏：品牌印章、「排版样式」锚点、「Obsidian 插件」、GitHub、「开始排版」；窄屏保留 GitHub 与「开始排版」。门户与插件页共用（`app/site-header.tsx`）
 - 首屏：标语「让文字，锦绣成章。」、一句说明、三个标签（原生 Markdown、本地处理正文、无需注册），右侧是原文到成品的示意图
-- 三张入口卡片：在浏览器里排版（跳 `/format`）；让 Agent 帮你发布（skill）；留在 Obsidian 里（插件）。后两张的安装命令与仓库地址在构建时由环境变量 `JINZHANG_SKILL_INSTALL`、`JINZHANG_OBSIDIAN_REPO` 注入，未配置时如实显示「即将提供」，不虚构入口
+- 三张入口卡片：在浏览器里排版（跳 `/format`）；让 Agent 帮你发布（skill）；留在 Obsidian 里（插件）。skill 的安装命令在构建时由环境变量 `JINZHANG_SKILL_INSTALL` 注入，未配置时如实显示「即将提供」，不虚构入口；插件卡片显示版本号，「下载 Obsidian 插件」直接下载本站的安装包，「安装与使用教程」链到 `/obsidian`
 - 「文字有风格，排版也有」一节用文字卡片介绍三套公众号主题，不放截图
 - 页脚显示版本号，取自 `apps/web/package.json`
 
@@ -56,6 +58,11 @@
 - 没有可用暂存时与清除本地数据之后，编辑区是示例稿：一份常用 Markdown 语法速览，标题「把写作还给写作」，配图 `/sample-cover.jpg` 按当前站点地址拼接，本地与线上都能显示。新建文章是空白
 - 示例里不放两个相邻的代码块（知乎会在中间插空段防止合并，预览里显得空一大块），分隔线不紧贴标题
 - 存储不可用或空间不足时照常排版，底栏显示暂存失败，并提示刷新后内容不会保留
+
+### 2.4 Obsidian 插件页
+
+- 安装包放在本站，国内用户不依赖 GitHub：`pnpm build` 在网页构建前执行 `pnpm build:obsidian`，由 `scripts/pack-obsidian.mjs` 把插件三件套打成 `public/downloads/jinzhang-obsidian-<版本>.zip`，解压得到 `jinzhang/` 文件夹，放进仓库的 `.obsidian/plugins` 即可。版本号取自 `apps/obsidian/manifest.json`，页面与文件名用同一个值（`lib/obsidian-plugin.ts`），文件名带版本号以免拿到缓存的旧包；目录里只保留当前版本。安装包与 GitHub Release 来自同一份源码，网站随镜像部署更新
+- `/obsidian` 是面向用户的教程：下载按钮与适用范围（桌面版、`minAppVersion` 以上）、三步上手，正文依次为安装（下载安装包 / BRAT）、打开预览、复制到平台、推送到草稿箱、开头结尾与名片、Obsidian 写法、命令一览、数据存在哪里、更新与卸载、常见问题；左侧目录在窄屏改为顶部标签。界面用词按插件源码与 Obsidian 中文界面核对，插件行为变化时同步改这一页
 
 ## 3. 数据流
 
@@ -167,6 +174,7 @@ core 定义 `ImageStore` 接口：`put(image, ctx)` 收到一张图片的引用�
 - `next.config.ts`：`output: 'standalone'`；`transpilePackages: ['@jinzhang/core']`；`ali-oss`、`sharp` 作为服务端外部包
 - 依赖 `@jinzhang/core` 的 `.`、`./preview`、`./browser` 三个入口。`pnpm check` 里的 `scripts/check-browser-boundary.mjs` 把 core 产物与 `lib/clipboard.ts` 按浏览器打包，拒绝 Node 内置模块、sharp、ali-oss 与投递代码，并扫描 Next 客户端产物里没有服务端密钥的变量名
 - 测试：Vitest，截至 `4d312c0` 共 45 项（core 的渲染、评审回归与浏览器资源，网页版的文档恢复、编辑、剪贴板与中转服务）；Playwright 端到端 25 项（`apps/web/e2e/workspace.spec.ts`，覆盖插图与上传、补图恢复、两平台真实剪贴板载荷、失败重试、快速改稿、手动复制、新建与上一稿、长文同步、窄屏、示例升级与过渡动效）。CI 的 Check 工作流在每次推送与 PR 上跑 `pnpm check` 与端到端；本地用 `PLAYWRIGHT_CHANNEL=chrome` 走已装的 Chrome。端到端里的 OSS 返回是隔离模拟，不代表真实云端验收
+- 插件安装包：根目录 `pnpm build` 依次生成主题、构建 core、构建插件并打包、构建网页，镜像构建因此也安装 `apps/obsidian` 的依赖
 - 部署：Docker 镜像（Next standalone）由 Container image 工作流在 main 推送时构建到 GHCR，按 digest 部署到 silicon，前面是 HAProxy 网关与宿主 Caddy（HTTPS）；域名 `jinzhang.ink`，DNS 托管在 Cloudflare。发布、验收与回退见 [deployment.md](../../deployment.md)
 
 ## 10. 验证清单与现状
@@ -230,3 +238,4 @@ core 定义 `ImageStore` 接口：`put(image, ctx)` 收到一张图片的引用�
 - 2026-09-30 按线上版本 `4d312c0` 同步：补门户首页的实际结构与入口注入规则、`/api/health`、排版页三栏与响应式布局、本地存储与示例稿（首次打开与清除后为示例、示例升级规则）；数据流改为实际接口与 `CopyImageStore`，补编辑期间保留上一帧与复制等待最新排版；插图即后台上传不分平台、原生撤销与拖放落点；中转接口补 Origin 校验、精确大小、完整解码与网关限流；剪贴板补按钮状态、失败原因与超时；预览补 CSP、宽度与动效、同步定位；固定内容改为实际样式与字段，注明不做变量；工程与部署改为线上实际；验证清单加现状，待实测更新并关闭「知乎抓取预签名地址」；新增第 13 节记录与需求文档的三处差异。来源 issue #5、#7、#9
 - 2026-09-30 按用户决定把知乎中转保留期从 7 天缩短为 1 天：`transit/` 生命周期改为 1 天，读取地址改为 24 小时，浏览器中转缓存改为 20 小时并换用新键 `jinzhang.transit-cache.v2`，旧键条目不再复用。来源 [issue #14](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/14)
 - 2026-10-21 按用户定位改为临时排版：浏览器只暂存当前内容供刷新恢复，从最后一次修改起保留 1 天，过期、损坏或旧版本留下的数据打开时整体删除；去掉「恢复上一稿」与旧示例升级（`legacy-samples.ts`）；打开页面时删除正文不再引用的图片与过期中转地址。来源 [issue #29](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/29)
+- 2026-10-21 按用户要求，网站提供 Obsidian 插件下载与使用教程：新增 `/obsidian` 教程页与本站安装包 `/downloads/jinzhang-obsidian-<版本>.zip`（构建时从同一份源码生成），首页插件卡片改为直接下载并链到教程，顶栏加「Obsidian 插件」；不再使用 `JINZHANG_OBSIDIAN_REPO`。来源 [issue #32](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/32)

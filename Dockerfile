@@ -4,11 +4,12 @@ RUN corepack enable && corepack prepare pnpm@10.29.2 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
+COPY apps/obsidian/package.json apps/obsidian/package.json
 RUN pnpm install --frozen-lockfile
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# 首页是构建时预渲染的静态页，安装入口要在这里注入；未提供时如实显示「即将提供」。
-ARG JINZHANG_OBSIDIAN_REPO=
+# 首页是构建时预渲染的静态页，Skill 安装入口要在这里注入；未提供时如实显示「即将提供」。
+# Obsidian 插件安装包由 pnpm build 从同一份源码构建，放进 apps/web/public/downloads。
 ARG JINZHANG_SKILL_INSTALL=
 RUN pnpm build
 

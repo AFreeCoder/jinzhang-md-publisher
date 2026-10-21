@@ -1,23 +1,11 @@
 import Link from 'next/link';
 import { version } from '../package.json';
-const repository = 'https://github.com/AFreeCoder/jinzhang-md-publisher';
+import { obsidianPlugin } from '../lib/obsidian-plugin';
+import { SiteHeader } from './site-header';
 export default function Home() {
   return (
     <main id="home">
-      <header>
-        <Link className="brand" href="/">
-          <span className="seal">锦章</span> <small>JINZHANG</small>
-        </Link>
-        <nav>
-          <a href="#themes">排版样式</a>
-          <a className="github" href={repository} target="_blank" rel="noreferrer">
-            GitHub ↗
-          </a>
-          <Link prefetch={false} href="/format" className="icon-link">
-            开始排版 ↗
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader />
       <section className="hero">
         <div>
           <div className="eyebrow">MARKDOWN 发布助手</div>
@@ -80,21 +68,7 @@ export default function Home() {
             <br />
             预览满意后，复制到平台编辑器。
           </p>
-          <Link
-            className="primary"
-            prefetch={false}
-            href="/format"
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              background: 'var(--red)',
-              color: '#fff',
-              padding: '11px 14px',
-              borderRadius: 7,
-              marginTop: 10,
-              fontSize: 13,
-            }}
-          >
+          <Link className="primary entry-action" prefetch={false} href="/format">
             打开在线排版 <span>↗</span>
           </Link>
         </article>
@@ -114,9 +88,7 @@ export default function Home() {
         <article className="entry">
           <div className="entry-top">
             <span className="entry-icon">◇</span>
-            <span className="tag">
-              {process.env.JINZHANG_OBSIDIAN_REPO ? 'BRAT 安装' : '即将提供'}
-            </span>
+            <span className="tag">v{obsidianPlugin.version}</span>
           </div>
           <h2>留在 Obsidian 里</h2>
           <p>
@@ -124,7 +96,12 @@ export default function Home() {
             <br />
             从笔记直接预览、投递到草稿箱。
           </p>
-          <code>{process.env.JINZHANG_OBSIDIAN_REPO || 'Obsidian 插件安装入口准备中'}</code>
+          <a className="primary entry-action" href={obsidianPlugin.download} download>
+            下载 Obsidian 插件 <span>↓</span>
+          </a>
+          <Link className="entry-more" href="/obsidian">
+            安装与使用教程 →
+          </Link>
         </article>
       </section>
       <section className="themes-section" id="themes">
