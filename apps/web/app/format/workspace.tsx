@@ -32,17 +32,21 @@ import {
   TaskVersion,
   writeClipboard,
   clearTransitCache,
+  pruneTransitCache,
   type CopyPayload,
 } from '../../lib/clipboard';
 import {
   freshDocument,
   initialDocument,
   restoreDocument,
+  restorePrevious,
   STORAGE_KEY,
+  PREVIOUS_KEY,
   templates,
   sampleMarkdown,
   sampleTitle,
   normalizeCollectionLink,
+  type Article,
   type DocumentState,
   type FixedContent,
 } from '../../lib/document';
@@ -79,10 +83,7 @@ export default function Workspace() {
   const [collectionError, setCollectionError] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
-  const [previousArticle, setPreviousArticle] = useState<{
-    markdown: string;
-    title: string;
-  } | null>(null);
+  const [previousArticle, setPreviousArticle] = useState<Article | null>(null);
   const [pendingUploads, setPendingUploads] = useState<string[]>([]);
   const [uploadFailed, setUploadFailed] = useState<string[]>([]);
   const uploadGeneration = useRef(0);
@@ -163,6 +164,8 @@ export default function Workspace() {
     currentJob.current = undefined;
     setBusy(false);
     const next = { ...docRef.current, ...change };
+    if ((change.markdown !== undefined || change.title !== undefined) && !change.updatedAt)
+      next.updatedAt = Date.now();
     docRef.current = next;
     setDoc(next);
   }
@@ -171,8 +174,27 @@ export default function Workspace() {
     update({ fixed: { ...doc.fixed, [doc.platform]: { ...fixed, ...change } } });
   }
   useEffect(() => {
+    const now = Date.now();
+    let previous: Article | null = null;
+    let restored: DocumentState | undefined;
     try {
-      const restored = restoreDocument(localStorage.getItem(STORAGE_KEY), location.origin);
+      previous = restorePrevious(localStorage.getItem(PREVIOUS_KEY), now);
+      const { doc, expired } = restoreDocument(
+        localStorage.getItem(STORAGE_KEY),
+        location.origin,
+        now,
+      );
+      restored = doc;
+      if (expired) {
+        try {
+          localStorage.setItem(PREVIOUS_KEY, JSON.stringify(expired));
+          previous = expired;
+          setNotice('上次的文章超过一天没有修改，已收进「恢复上一稿」。');
+        } catch {
+          // 存不下上一稿时不丢原文，照旧恢复。
+          restored = { ...doc, ...expired };
+        }
+      }
       docRef.current = restored;
       setDoc(restored);
       setStorageStatus('已恢复本浏览器内容');
@@ -182,12 +204,20 @@ export default function Workspace() {
       setNotice('本地存储不可用或内容损坏，当前输入不会覆盖原数据。');
     }
     setReady(true);
-    try {
-      const previous = JSON.parse(localStorage.getItem('jinzhang.previous-article.v1') || 'null');
-      if (previous && typeof previous.markdown === 'string' && typeof previous.title === 'string')
-        setPreviousArticle(previous);
-    } catch {
-      /* 旧稿备份无效不阻塞当前文章。 */
+    setPreviousArticle(previous);
+    if (restored) {
+      // 过期或无效的上一稿删除，旧数据补上时间戳；当前文章与上一稿都不再引用的图片一并清理。
+      try {
+        if (previous) localStorage.setItem(PREVIOUS_KEY, JSON.stringify(previous));
+        else localStorage.removeItem(PREVIOUS_KEY);
+      } catch {
+        /* 上一稿写不回时下次打开再处理。 */
+      }
+      const texts = [restored.markdown, previous?.markdown ?? ''];
+      void resolver.current
+        .prune((ref) => texts.some((text) => text.includes(ref)))
+        .catch(() => {});
+      pruneTransitCache();
     }
     return () => controller.current?.abort();
   }, []);
@@ -437,9 +467,14 @@ export default function Workspace() {
   }
   function replaceArticle(markdown: string, title: string) {
     if (docRef.current.markdown || docRef.current.title) {
-      const previous = { markdown: docRef.current.markdown, title: docRef.current.title };
+      const current = docRef.current;
+      const previous = {
+        markdown: current.markdown,
+        title: current.title,
+        updatedAt: current.updatedAt,
+      };
       try {
-        localStorage.setItem('jinzhang.previous-article.v1', JSON.stringify(previous));
+        localStorage.setItem(PREVIOUS_KEY, JSON.stringify(previous));
       } catch {
         setNotice('无法保留上一稿，请先复制原文。');
         return;
@@ -596,7 +631,7 @@ export default function Workspace() {
       clearTransitCache();
       setUploadFailed([]);
       localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem('jinzhang.previous-article.v1');
+      localStorage.removeItem(PREVIOUS_KEY);
       setPreviousArticle(null);
       allowSave.current = true;
       skipSave.current = true;

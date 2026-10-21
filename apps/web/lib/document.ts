@@ -1,6 +1,11 @@
 import type { Platform, ThemeId } from '@jinzhang/core';
 import { legacySamples } from './legacy-samples';
 export const STORAGE_KEY = 'jinzhang.document.v1';
+export const PREVIOUS_KEY = 'jinzhang.previous-article.v1';
+/** 文章超过 1 天没改，再打开时按首次打开处理，原文收进上一稿。 */
+export const ARTICLE_TTL = 24 * 3600_000;
+/** 上一稿从最后一次修改起保留 7 天。 */
+export const PREVIOUS_TTL = 7 * 24 * 3600_000;
 export interface FixedContent {
   header: boolean;
   footer: boolean;
@@ -11,14 +16,18 @@ export interface FixedContent {
   closing: string;
   collection: string;
 }
-export interface DocumentState {
+export interface Article {
   markdown: string;
   title: string;
+  /** 原文或标题最后一次修改的时间，毫秒时间戳。 */
+  updatedAt: number;
+}
+export interface DocumentState extends Article {
   theme: ThemeId;
   platform: Platform;
   fixed: Record<Platform, FixedContent>;
 }
-export function freshDocument(): DocumentState {
+export function freshDocument(now = Date.now()): DocumentState {
   const fixed = () => ({
     header: false,
     footer: false,
@@ -32,13 +41,24 @@ export function freshDocument(): DocumentState {
   return {
     markdown: '',
     title: '',
+    updatedAt: now,
     theme: 'sspai',
     platform: 'wechat',
     fixed: { wechat: fixed(), zhihu: fixed() },
   };
 }
-export function restoreDocument(raw: string | null, origin = ''): DocumentState {
-  if (!raw) return initialDocument(origin);
+const timestamp = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+/**
+ * 恢复本浏览器保存的文档。排版设置始终保留；文章超过 1 天没改时换成示例稿，
+ * 原文在上一稿保留期内的通过 `expired` 交给调用方收进上一稿。
+ */
+export function restoreDocument(
+  raw: string | null,
+  origin = '',
+  now = Date.now(),
+): { doc: DocumentState; expired?: Article } {
+  if (!raw) return { doc: initialDocument(origin, now) };
   const d = JSON.parse(raw);
   if (
     !d ||
@@ -60,15 +80,34 @@ export function restoreDocument(raw: string | null, origin = ''): DocumentState 
     )
       throw new Error('本地设置格式无效。');
   }
-  // 浏览器里存着原样未改的旧版示例时换成当前示例，平台与排版设置保留；改过的稿子不动。
-  const outdated = d.title === sampleTitle && legacySamples(origin).includes(d.markdown);
-  return {
-    markdown: outdated ? sampleMarkdown(origin) : d.markdown,
-    title: d.title,
-    theme: d.theme,
-    platform: d.platform,
-    fixed: d.fixed,
-  };
+  const settings = { theme: d.theme as ThemeId, platform: d.platform as Platform, fixed: d.fixed };
+  // 升级前保存的数据没有时间戳，年龄未知：按已过期处理，上一稿的保留期从本次打开起算。
+  const updatedAt = timestamp(d.updatedAt);
+  // 原样未改的示例（含旧版示例）换成当前示例，它不算用户的文章。
+  if (
+    d.title === sampleTitle &&
+    [sampleMarkdown(origin), ...legacySamples(origin)].includes(d.markdown)
+  )
+    return { doc: { ...initialDocument(origin, updatedAt ?? now), ...settings } };
+  if (updatedAt !== undefined && now - updatedAt < ARTICLE_TTL)
+    return { doc: { markdown: d.markdown, title: d.title, updatedAt, ...settings } };
+  const doc = { ...initialDocument(origin, now), ...settings };
+  const since = updatedAt ?? now;
+  if ((!d.markdown && !d.title) || now - since >= PREVIOUS_TTL) return { doc };
+  return { doc, expired: { markdown: d.markdown, title: d.title, updatedAt: since } };
+}
+/** 读取上一稿；无效或超过 7 天返回 null。升级前没有时间戳的从本次打开起算。 */
+export function restorePrevious(raw: string | null, now = Date.now()): Article | null {
+  try {
+    const p = JSON.parse(raw || 'null');
+    if (!p || typeof p.markdown !== 'string' || typeof p.title !== 'string') return null;
+    const updatedAt = timestamp(p.updatedAt) ?? now;
+    return now - updatedAt < PREVIOUS_TTL
+      ? { markdown: p.markdown, title: p.title, updatedAt }
+      : null;
+  } catch {
+    return null;
+  }
 }
 export function normalizeCollectionLink(value: string): string | null {
   const input = value.trim();
@@ -205,6 +244,6 @@ pnpm install && pnpm dev
 `;
 }
 /** 首次打开（本浏览器没有保存过内容）时的文档：预置示例稿，让成品预览立刻可见。 */
-export function initialDocument(origin: string): DocumentState {
-  return { ...freshDocument(), markdown: sampleMarkdown(origin), title: sampleTitle };
+export function initialDocument(origin: string, now = Date.now()): DocumentState {
+  return { ...freshDocument(now), markdown: sampleMarkdown(origin), title: sampleTitle };
 }

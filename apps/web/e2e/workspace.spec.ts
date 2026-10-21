@@ -116,6 +116,67 @@ test('新建保留设置与上一稿，刷新后恢复，取消不丢内容', as
   await page.getByRole('button', { name: '恢复上一稿', exact: true }).click();
   await expect(editor).toHaveValue('需要保留的文章');
 });
+test('超过一天没改的文章打开时收进上一稿，超过七天连同图片清理', async ({ page }) => {
+  await page.goto('/format');
+  const editor = page.getByRole('textbox', { name: 'Markdown 原文' });
+  await editor.fill('几周前的文章\n');
+  await page.getByRole('button', { name: 'Mac', exact: true }).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: '＋ 插入图片' }).click();
+  await (await chooser).setFiles(fixture);
+  await expect(editor).toHaveValue(/jz-local:/);
+  const article = await editor.inputValue();
+  const saved = () => page.evaluate(() => localStorage.getItem('jinzhang.document.v1') || '');
+  await expect.poll(saved).toContain('jz-local:');
+  // 把保存时间往前拨，模拟隔了一段时间再打开。
+  const age = (ms: number) =>
+    page.evaluate((ms) => {
+      const doc = JSON.parse(localStorage.getItem('jinzhang.document.v1')!);
+      doc.updatedAt = Date.now() - ms;
+      localStorage.setItem('jinzhang.document.v1', JSON.stringify(doc));
+    }, ms);
+  const storedImages = () =>
+    page.evaluate(
+      () =>
+        new Promise<number>((resolve, reject) => {
+          const open = indexedDB.open('jinzhang-assets');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const count = open.result.transaction('refs').objectStore('refs').count();
+            count.onsuccess = () => {
+              open.result.close();
+              resolve(count.result);
+            };
+          };
+        }),
+    );
+  await age(23 * 3600_000);
+  await page.reload();
+  await expect(editor).toHaveValue(article);
+  await age(25 * 3600_000);
+  await page.reload();
+  await expect(editor).toHaveValue(/^# 把写作还给写作/);
+  await expect(page.getByText('上次的文章超过一天没有修改，已收进「恢复上一稿」。')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mac', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(await storedImages()).toBe(1);
+  await page.getByLabel('更多操作').click();
+  await page.getByRole('button', { name: '恢复上一稿', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '恢复上一稿', exact: true }).click();
+  await expect(editor).toHaveValue(article);
+  const image = page.frameLocator('iframe').locator('article img');
+  await expect(image).toHaveJSProperty('complete', true);
+  expect(await image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(saved).toContain('几周前的文章');
+  // 文章与图片只存在过期文章里：超过上一稿的保留期后不再恢复，图片也删除。
+  await age(8 * 24 * 3600_000);
+  await page.reload();
+  await expect(editor).toHaveValue(/^# 把写作还给写作/);
+  await expect(page.getByText(/已收进「恢复上一稿」/)).toHaveCount(0);
+  await expect.poll(storedImages).toBe(0);
+});
 test('长文双向同步、精确点击定位，手机编辑预览切换', async ({ page }) => {
   await page.goto('/format');
   const editor = page.getByRole('textbox', { name: 'Markdown 原文' });
