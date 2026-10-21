@@ -103,9 +103,15 @@ small,
   letter-spacing: 2px;
   display: grid;
   place-items: center;
-  font-family: serif;
+  /* 写明宋体：只写 serif 时英文环境的浏览器会退回黑体 */
+  font-family: 'Songti SC', 'Noto Serif CJK SC', SimSun, serif;
   font-size: 24px;
   font-weight: 400;
+  /* 行高不能超过内框 32px，否则文字被挤到下方 */
+  line-height: 1;
+  /* 宋体字形比行盒中线略低，底部垫 2px 上移 1px（基线按整像素对齐，这样上下差最小）；
+     letter-spacing 只加在字后，左侧补同样的 2px 才能水平居中 */
+  padding: 0 0 2px 2px;
 }
 .brand small {
   font-size: 11px;
