@@ -26,15 +26,20 @@ function write(node: Element, declarations: Declarations) {
       .join(';');
   else delete node.properties.style;
 }
-/** 代码块顶部的红黄绿圆点，放在 `pre` 的最前面。 */
+/**
+ * 代码块顶部的红黄绿圆点，放在 `pre` 的最前面。
+ * 用 SVG 画：公众号保存时会删掉空 `span`，圆点容器只剩一个换行，代码上方就多出一行空白。
+ */
 export function codeDots(): Element {
-  const dot = (color: string, last = false) =>
-    element('span', [], {
-      style: `display:inline-block;width:12px;height:12px;border-radius:50%;background:${color}${last ? '' : ';margin-right:6px'}`,
-    });
-  return element('section', [dot('#ff5f56'), dot('#ffbd2e'), dot('#27c93f', true)], {
-    style: 'margin-bottom:12px;white-space:nowrap',
+  const dot = (cx: string, fill: string) => element('circle', [], { cx, cy: '6', r: '6', fill });
+  const svg = element('svg', [dot('6', '#ff5f56'), dot('24', '#ffbd2e'), dot('42', '#27c93f')], {
+    xmlns: 'http://www.w3.org/2000/svg',
+    width: 48,
+    height: 12,
+    viewBox: '0 0 48 12',
+    style: 'display:block',
   });
+  return element('section', [svg], { style: 'margin-bottom:12px' });
 }
 const TABLE_COLUMN_MIN_WIDTH = 140;
 const HEX = /#[0-9a-f]{3,8}\b/i;
