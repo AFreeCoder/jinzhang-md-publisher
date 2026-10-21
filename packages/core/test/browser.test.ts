@@ -21,6 +21,24 @@ describe('本地图片与引用绑定', () => {
     await fresh.clear();
     expect((await fresh.resolve(a)).kind).toBe('missing');
   });
+  it('清理只删不再引用的图片，同一原图的其他引用与本实例新加的保留', async () => {
+    const store = new BrowserAssetResolver();
+    await store.clear();
+    const kept = await store.add(new Blob(['keep'], { type: 'image/png' }), './kept.png');
+    const twin = await store.add(new Blob(['keep'], { type: 'image/png' }));
+    const gone = await store.add(new Blob(['gone'], { type: 'image/png' }), './gone.png');
+    const later = new BrowserAssetResolver();
+    await later.prune((ref) => ref === kept);
+    for (const ref of [kept, './kept.png', twin])
+      expect((await later.resolve(ref)).kind).toBe('blob');
+    for (const ref of [gone, './gone.png']) expect((await later.resolve(ref)).kind).toBe('missing');
+    // 本实例刚加入、正文还没写入的引用不删。
+    const added = await later.add(new Blob(['new'], { type: 'image/png' }));
+    await later.prune(() => false);
+    expect((await later.resolve(added)).kind).toBe('blob');
+    expect((await later.resolve(kept)).kind).toBe('missing');
+    await later.clear();
+  });
   it('超大资源与无效 data URL 拒绝', async () => {
     const store = new BrowserAssetResolver();
     await expect(store.add(new Blob([new Uint8Array(13 * 1024 * 1024)]))).rejects.toThrow('12 MB');

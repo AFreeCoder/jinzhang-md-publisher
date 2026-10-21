@@ -32,6 +32,7 @@ import {
   TaskVersion,
   writeClipboard,
   clearTransitCache,
+  pruneTransitCache,
   type CopyPayload,
 } from '../../lib/clipboard';
 import {
@@ -39,6 +40,7 @@ import {
   initialDocument,
   restoreDocument,
   STORAGE_KEY,
+  LEGACY_PREVIOUS_KEY,
   templates,
   sampleMarkdown,
   sampleTitle,
@@ -66,7 +68,7 @@ function usePill(active: number) {
   }, [active]);
   return track;
 }
-type Modal = 'clear' | 'sample' | 'new' | 'restore' | null;
+type Modal = 'clear' | 'sample' | 'new' | null;
 export default function Workspace() {
   const [doc, setDoc] = useState<DocumentState>(freshDocument);
   const docRef = useRef(doc);
@@ -79,10 +81,6 @@ export default function Workspace() {
   const [collectionError, setCollectionError] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
-  const [previousArticle, setPreviousArticle] = useState<{
-    markdown: string;
-    title: string;
-  } | null>(null);
   const [pendingUploads, setPendingUploads] = useState<string[]>([]);
   const [uploadFailed, setUploadFailed] = useState<string[]>([]);
   const uploadGeneration = useRef(0);
@@ -96,7 +94,6 @@ export default function Workspace() {
   const [copyPhase, setCopyPhase] = useState<
     'idle' | 'working' | 'ready' | 'failed' | 'stale' | 'success'
   >('idle');
-  const allowSave = useRef(true);
   const skipSave = useRef(false);
   const resolver = useRef(new BrowserAssetResolver());
   const version = useRef(new TaskVersion());
@@ -162,7 +159,7 @@ export default function Workspace() {
     setMessage('');
     currentJob.current = undefined;
     setBusy(false);
-    const next = { ...docRef.current, ...change };
+    const next = { ...docRef.current, ...change, updatedAt: Date.now() };
     docRef.current = next;
     setDoc(next);
   }
@@ -171,38 +168,42 @@ export default function Workspace() {
     update({ fixed: { ...doc.fixed, [doc.platform]: { ...fixed, ...change } } });
   }
   useEffect(() => {
+    let restored: DocumentState | null = null;
     try {
-      const restored = restoreDocument(localStorage.getItem(STORAGE_KEY), location.origin);
-      docRef.current = restored;
-      setDoc(restored);
-      setStorageStatus('已恢复本浏览器内容');
+      restored = restoreDocument(localStorage.getItem(STORAGE_KEY));
+      localStorage.removeItem(LEGACY_PREVIOUS_KEY);
     } catch {
-      allowSave.current = false;
-      setStorageStatus('无法恢复本地数据');
-      setNotice('本地存储不可用或内容损坏，当前输入不会覆盖原数据。');
+      /* 存储不可用时当作首次打开，保存时再提示。 */
     }
+    const doc = restored ?? initialDocument(location.origin);
+    docRef.current = doc;
+    setDoc(doc);
+    if (restored) setStorageStatus('已恢复本浏览器内容');
     setReady(true);
+    // 本浏览器只留当前内容：正文不再引用的图片删除；没有可用暂存（首次打开、超过 1 天、
+    // 旧版本留下或已损坏）时图片与中转地址全部删除。
+    const markdown = restored?.markdown;
+    void resolver.current.prune((ref) => markdown?.includes(ref) ?? false).catch(() => {});
     try {
-      const previous = JSON.parse(localStorage.getItem('jinzhang.previous-article.v1') || 'null');
-      if (previous && typeof previous.markdown === 'string' && typeof previous.title === 'string')
-        setPreviousArticle(previous);
+      if (restored) pruneTransitCache();
+      else clearTransitCache();
     } catch {
-      /* 旧稿备份无效不阻塞当前文章。 */
+      /* 存储不可用时没有可清理的中转地址。 */
     }
     return () => controller.current?.abort();
   }, []);
   useEffect(() => {
-    if (!ready || !allowSave.current) return;
+    if (!ready) return;
     if (skipSave.current) {
       skipSave.current = false;
       return;
     }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
-      setStorageStatus('已保存在本浏览器');
+      setStorageStatus('已暂存在本浏览器，保留 1 天');
     } catch {
-      setStorageStatus('保存失败');
-      setNotice('本地空间不足或存储不可用，请先保留原文。');
+      setStorageStatus('暂存失败');
+      setNotice('浏览器存储不可用或空间不足，刷新后内容不会保留。');
     }
   }, [doc, ready]);
   useEffect(() => {
@@ -436,23 +437,10 @@ export default function Workspace() {
     replaceArticle(sampleMarkdown(location.origin), sampleTitle);
   }
   function replaceArticle(markdown: string, title: string) {
-    if (docRef.current.markdown || docRef.current.title) {
-      const previous = { markdown: docRef.current.markdown, title: docRef.current.title };
-      try {
-        localStorage.setItem('jinzhang.previous-article.v1', JSON.stringify(previous));
-      } catch {
-        setNotice('无法保留上一稿，请先复制原文。');
-        return;
-      }
-      setPreviousArticle(previous);
-    }
     pendingInsertions.current.clear();
     update({ markdown, title });
     setMobilePane('editor');
     setModal(null);
-  }
-  function restoreArticle() {
-    if (previousArticle) replaceArticle(previousArticle.markdown, previousArticle.title);
   }
   function beginCopy() {
     if (!doc.markdown.trim()) return;
@@ -596,9 +584,6 @@ export default function Workspace() {
       clearTransitCache();
       setUploadFailed([]);
       localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem('jinzhang.previous-article.v1');
-      setPreviousArticle(null);
-      allowSave.current = true;
       skipSave.current = true;
       preparedCache.current = undefined;
       currentJob.current = undefined;
@@ -692,14 +677,6 @@ export default function Workspace() {
             >
               新建文章
             </button>
-            {previousArticle && (
-              <button
-                className="quiet"
-                onClick={() => (doc.markdown || doc.title ? setModal('restore') : restoreArticle())}
-              >
-                恢复上一稿
-              </button>
-            )}
             <button
               className="quiet"
               onClick={() => (doc.markdown ? setModal('sample') : loadExample())}
@@ -1051,7 +1028,7 @@ export default function Workspace() {
         {shownModal === 'clear' && (
           <>
             <h2>清除本浏览器的数据？</h2>
-            <p>删除此浏览器保存的原文、图片与排版设置，不影响平台里的内容。此操作不能撤销。</p>
+            <p>删除此浏览器暂存的原文、图片与排版设置，不影响平台里的内容。此操作不能撤销。</p>
             <div className="modal-actions">
               <button onClick={() => setModal(null)}>取消</button>
               <button className="primary" onClick={() => void clearLocal()}>
@@ -1060,17 +1037,14 @@ export default function Workspace() {
             </div>
           </>
         )}
-        {(shownModal === 'new' || shownModal === 'restore') && (
+        {shownModal === 'new' && (
           <>
-            <h2>{shownModal === 'new' ? '新建一篇文章？' : '恢复上一稿？'}</h2>
-            <p>当前文章会保留为上一稿，排版设置不变。</p>
+            <h2>新建一篇文章？</h2>
+            <p>当前原文会被清空，平台与排版设置不变。</p>
             <div className="modal-actions">
               <button onClick={() => setModal(null)}>取消</button>
-              <button
-                className="primary"
-                onClick={() => (shownModal === 'new' ? replaceArticle('', '') : restoreArticle())}
-              >
-                {shownModal === 'new' ? '新建文章' : '恢复上一稿'}
+              <button className="primary" onClick={() => replaceArticle('', '')}>
+                新建文章
               </button>
             </div>
           </>
@@ -1078,7 +1052,7 @@ export default function Workspace() {
         {shownModal === 'sample' && (
           <>
             <h2>用示例替换当前原文？</h2>
-            <p>当前文章会保留为上一稿，平台与排版设置不变。</p>
+            <p>当前原文会被替换，平台与排版设置不变。</p>
             <div className="modal-actions">
               <button onClick={() => setModal(null)}>取消</button>
               <button className="primary" onClick={loadExample}>

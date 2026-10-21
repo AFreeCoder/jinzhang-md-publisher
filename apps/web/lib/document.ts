@@ -1,6 +1,9 @@
 import type { Platform, ThemeId } from '@jinzhang/core';
-import { legacySamples } from './legacy-samples';
 export const STORAGE_KEY = 'jinzhang.document.v1';
+/** 已下线的上一稿备份，打开页面时删除。 */
+export const LEGACY_PREVIOUS_KEY = 'jinzhang.previous-article.v1';
+/** 网页只是临时排版：当前内容暂存在本浏览器供刷新恢复，从最后一次修改起保留 1 天。 */
+export const STORAGE_TTL = 24 * 3600_000;
 export interface FixedContent {
   header: boolean;
   footer: boolean;
@@ -17,8 +20,10 @@ export interface DocumentState {
   theme: ThemeId;
   platform: Platform;
   fixed: Record<Platform, FixedContent>;
+  /** 原文或设置最后一次修改的时间，毫秒时间戳。 */
+  updatedAt: number;
 }
-export function freshDocument(): DocumentState {
+export function freshDocument(now = Date.now()): DocumentState {
   const fixed = () => ({
     header: false,
     footer: false,
@@ -35,19 +40,27 @@ export function freshDocument(): DocumentState {
     theme: 'sspai',
     platform: 'wechat',
     fixed: { wechat: fixed(), zhihu: fixed() },
+    updatedAt: now,
   };
 }
-export function restoreDocument(raw: string | null, origin = ''): DocumentState {
-  if (!raw) return initialDocument(origin);
-  const d = JSON.parse(raw);
+/** 读取暂存的文档；没有、格式无效、超过 1 天或是旧版本留下的（没有时间戳）都返回 null。 */
+export function restoreDocument(raw: string | null, now = Date.now()): DocumentState | null {
+  let d;
+  try {
+    d = JSON.parse(raw || 'null');
+  } catch {
+    return null;
+  }
   if (
     !d ||
     typeof d.markdown !== 'string' ||
     typeof d.title !== 'string' ||
     !['wechat', 'zhihu'].includes(d.platform) ||
-    !['sspai', 'native', 'mac'].includes(d.theme)
+    !['sspai', 'native', 'mac'].includes(d.theme) ||
+    !Number.isFinite(d.updatedAt) ||
+    now - d.updatedAt >= STORAGE_TTL
   )
-    throw new Error('本地文档格式无效。');
+    return null;
   for (const platform of ['wechat', 'zhihu']) {
     const f = d.fixed?.[platform];
     if (
@@ -58,16 +71,15 @@ export function restoreDocument(raw: string | null, origin = ''): DocumentState 
         (k) => typeof f[k] !== 'string',
       )
     )
-      throw new Error('本地设置格式无效。');
+      return null;
   }
-  // 浏览器里存着原样未改的旧版示例时换成当前示例，平台与排版设置保留；改过的稿子不动。
-  const outdated = d.title === sampleTitle && legacySamples(origin).includes(d.markdown);
   return {
-    markdown: outdated ? sampleMarkdown(origin) : d.markdown,
+    markdown: d.markdown,
     title: d.title,
     theme: d.theme,
     platform: d.platform,
     fixed: d.fixed,
+    updatedAt: d.updatedAt,
   };
 }
 export function normalizeCollectionLink(value: string): string | null {
@@ -204,7 +216,7 @@ pnpm install && pnpm dev
 [^2]: 公众号在文末列出「注释」，知乎会转成平台自带的参考文献。
 `;
 }
-/** 首次打开（本浏览器没有保存过内容）时的文档：预置示例稿，让成品预览立刻可见。 */
+/** 没有可用暂存（首次打开、超过 1 天或清除后）时的文档：预置示例稿，让成品预览立刻可见。 */
 export function initialDocument(origin: string): DocumentState {
   return { ...freshDocument(), markdown: sampleMarkdown(origin), title: sampleTitle };
 }

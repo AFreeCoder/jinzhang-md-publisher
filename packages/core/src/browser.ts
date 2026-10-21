@@ -25,6 +25,8 @@ function request<T>(r: IDBRequest<T>) {
 }
 export class BrowserAssetResolver implements AssetResolver {
   private connection?: Promise<IDBDatabase>;
+  /** 本实例加入的引用；正文可能还没写入它们，清理时一律保留。 */
+  private added = new Set<string>();
   private open() {
     return (this.connection ??= new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open(DATABASE, 1);
@@ -48,18 +50,20 @@ export class BrowserAssetResolver implements AssetResolver {
     if (!blob.size || blob.size > MAX_INPUT_BYTES) throw new Error('图片必须小于 12 MB。');
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const hash = await digest(bytes);
-    const id = crypto.randomUUID();
+    const ref = `jz-local://${crypto.randomUUID()}`;
+    this.added.add(ref);
+    if (originalRef) this.added.add(originalRef);
     const db = await this.open();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(['refs', 'blobs'], 'readwrite');
       tx.objectStore('blobs').put(blob, hash);
-      tx.objectStore('refs').put(hash, `jz-local://${id}`);
+      tx.objectStore('refs').put(hash, ref);
       if (originalRef) tx.objectStore('refs').put(hash, originalRef);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
     });
-    return `jz-local://${id}`;
+    return ref;
   }
   async get(ref: string) {
     const db = await this.open();
@@ -100,6 +104,37 @@ export class BrowserAssetResolver implements AssetResolver {
         assetId: ref,
       };
     return { kind: 'missing', reason: '浏览器无法读取此图片，请选择对应的本地文件。' };
+  }
+  /**
+   * 删除不再引用的图片：`keep` 命中的引用连同指向同一原图的其他引用都保留，
+   * 本实例加入的也保留；其余引用和没有引用指向的原图删除。
+   */
+  async prune(keep: (ref: string) => boolean) {
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(['refs', 'blobs'], 'readwrite');
+      const refs = tx.objectStore('refs');
+      const blobs = tx.objectStore('blobs');
+      const keys = refs.getAllKeys();
+      const hashes = refs.getAll();
+      hashes.onsuccess = () => {
+        const all = keys.result as string[];
+        const kept = new Set<string>();
+        all.forEach((ref, i) => {
+          if (this.added.has(ref) || keep(ref)) kept.add(hashes.result[i]);
+        });
+        all.forEach((ref, i) => {
+          if (!kept.has(hashes.result[i])) refs.delete(ref);
+        });
+        const stored = blobs.getAllKeys();
+        stored.onsuccess = () => {
+          for (const hash of stored.result as string[]) if (!kept.has(hash)) blobs.delete(hash);
+        };
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
   }
   async clear() {
     const db = await this.open();

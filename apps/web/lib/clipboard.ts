@@ -72,6 +72,18 @@ function savedTransits() {
   localStorage.removeItem(LEGACY_TRANSIT_CACHE);
   return JSON.parse(localStorage.getItem(TRANSIT_CACHE) || '{}');
 }
+/** 打开页面时删除过期的中转地址，不留到下次上传才顺手清理。 */
+export function pruneTransitCache() {
+  try {
+    const saved: Record<string, { expires: number } | null> = savedTransits();
+    const live = Object.entries(saved).filter(([, entry]) => entry && entry.expires > Date.now());
+    if (live.length === Object.keys(saved).length) return;
+    if (live.length) localStorage.setItem(TRANSIT_CACHE, JSON.stringify(Object.fromEntries(live)));
+    else localStorage.removeItem(TRANSIT_CACHE);
+  } catch {
+    /* 存储不可用时缓存本来就读不到。 */
+  }
+}
 async function transitCached(key: string, upload: () => Promise<PlacedImage>) {
   if (!transitSaved.has(key)) {
     try {

@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { legacySamples } from '../lib/legacy-samples';
 const fixture = path.resolve('fixtures/sample.png');
 test('手机画布与预览栏一起收窄，正文不过度留白且小屏不横向溢出', async ({ page }) => {
   await page.goto('/format');
@@ -51,42 +50,76 @@ test('自适应与手机切换连贯过渡且可中途折返，减少动态效�
   expect(await running()).toBe(0);
   await expect(page.locator('.preview-panel')).toHaveCSS('width', '444px');
 });
-test('老用户浏览器里原样未改的旧示例升级为新示例，排版设置保留', async ({ page }) => {
-  await page.goto('/');
-  const origin = new URL(page.url()).origin;
-  for (const markdown of legacySamples(origin)) {
-    await page.evaluate((markdown) => {
-      const fixed = {
-        header: false,
-        footer: false,
-        headerStyle: '简约署名',
-        footerStyle: '一句寄语',
-        author: '',
-        slogan: '',
-        closing: '',
-        collection: '',
-      };
-      localStorage.setItem(
-        'jinzhang.document.v1',
-        JSON.stringify({
-          markdown,
-          title: '把写作还给写作',
-          theme: 'mac',
-          platform: 'wechat',
-          fixed: { wechat: fixed, zhihu: fixed },
+test('当前内容在本浏览器暂存 1 天供刷新恢复，过期或旧版本留下的数据整体删除', async ({ page }) => {
+  await page.goto('/format');
+  const editor = page.getByRole('textbox', { name: 'Markdown 原文' });
+  await editor.fill('刷新要保留的文章\n');
+  await page.getByRole('button', { name: 'Mac', exact: true }).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: '＋ 插入图片' }).click();
+  await (await chooser).setFiles(fixture);
+  await expect(editor).toHaveValue(/jz-local:/);
+  const article = await editor.inputValue();
+  const saved = () => page.evaluate(() => localStorage.getItem('jinzhang.document.v1') || '');
+  await expect.poll(saved).toContain('jz-local:');
+  // 把暂存时间往前拨，模拟隔了一段时间再打开。
+  const age = (ms: number) =>
+    page.evaluate((ms) => {
+      const doc = JSON.parse(localStorage.getItem('jinzhang.document.v1')!);
+      doc.updatedAt = Date.now() - ms;
+      localStorage.setItem('jinzhang.document.v1', JSON.stringify(doc));
+    }, ms);
+  const storedImages = () =>
+    page.evaluate(
+      () =>
+        new Promise<number>((resolve, reject) => {
+          const open = indexedDB.open('jinzhang-assets');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const count = open.result.transaction('refs').objectStore('refs').count();
+            count.onsuccess = () => {
+              open.result.close();
+              resolve(count.result);
+            };
+          };
         }),
-      );
-    }, markdown);
-    await page.goto('/format');
-    await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue(/## 01 标题/);
-    await expect(page.getByRole('button', { name: 'Mac', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
     );
-    await page.goto('/');
-  }
+  const mac = page.getByRole('button', { name: 'Mac', exact: true });
+  await age(23 * 3600_000);
+  await page.reload();
+  await expect(editor).toHaveValue(article);
+  await expect(mac).toHaveAttribute('aria-pressed', 'true');
+  // 刷新本身不算修改，不会延长保留期。
+  expect(JSON.parse(await saved()).updatedAt).toBeLessThan(Date.now() - 22 * 3600_000);
+  expect(await storedImages()).toBe(1);
+  await age(25 * 3600_000);
+  await page.reload();
+  await expect(editor).toHaveValue(/^# 把写作还给写作/);
+  await expect(mac).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(storedImages).toBe(0);
+  await expect.poll(saved).not.toContain('刷新要保留的文章');
+  // 旧版本留下的数据没有时间戳，连同已下线的上一稿备份一起删除。
+  await page.evaluate(() => {
+    const doc = JSON.parse(localStorage.getItem('jinzhang.document.v1')!);
+    delete doc.updatedAt;
+    localStorage.setItem(
+      'jinzhang.document.v1',
+      JSON.stringify({ ...doc, markdown: '几周前的文章', title: '' }),
+    );
+    localStorage.setItem(
+      'jinzhang.previous-article.v1',
+      JSON.stringify({ markdown: '更早的文章', title: '' }),
+    );
+  });
+  await page.reload();
+  await expect(editor).toHaveValue(/^# 把写作还给写作/);
+  expect(
+    await page.evaluate(() => localStorage.getItem('jinzhang.previous-article.v1')),
+  ).toBeNull();
+  await page.getByLabel('更多操作').click();
+  await expect(page.getByRole('button', { name: '恢复上一稿' })).toHaveCount(0);
 });
-test('新建保留设置与上一稿，刷新后恢复，取消不丢内容', async ({ page }) => {
+test('新建保留设置，刷新后恢复，取消不丢内容', async ({ page }) => {
   await page.goto('/format');
   const editor = page.getByRole('textbox', { name: 'Markdown 原文' });
   await editor.fill('需要保留的文章');
@@ -112,9 +145,7 @@ test('新建保留设置与上一稿，刷新后恢复，取消不丢内容', as
     'true',
   );
   await expect(page.getByRole('textbox', { name: '作者名', exact: true })).toHaveValue('我的署名');
-  await page.getByLabel('更多操作').click();
-  await page.getByRole('button', { name: '恢复上一稿', exact: true }).click();
-  await expect(editor).toHaveValue('需要保留的文章');
+  await expect(editor).toHaveValue('');
 });
 test('长文双向同步、精确点击定位，手机编辑预览切换', async ({ page }) => {
   await page.goto('/format');
@@ -630,14 +661,16 @@ test('插图立即上传，编辑不被阻塞，远程图片失败有轻提示',
   await expect(page.getByRole('button', { name: '已复制 ✓' })).toBeVisible();
   await expect(page.locator('.toast')).toContainText('远程图片未能处理');
 });
-test('损坏的本地数据不会被页面加载静默覆盖', async ({ page }) => {
+test('损坏的本地暂存直接作废，从示例开始', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.setItem('jinzhang.document.v1', '{broken-json'));
   await page.goto('/format');
-  await expect(page.getByRole('status')).toContainText('本地存储不可用');
-  expect(await page.evaluate(() => localStorage.getItem('jinzhang.document.v1'))).toBe(
-    '{broken-json',
+  await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue(
+    /^# 把写作还给写作/,
   );
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('jinzhang.document.v1') || ''))
+    .toContain('"updatedAt"');
 });
 
 test('十张透明图片形成约 5 MB 富文本载荷，Chrome 剪贴板保留全部图片', async ({ page }) => {
