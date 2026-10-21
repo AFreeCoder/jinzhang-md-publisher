@@ -1517,7 +1517,8 @@ dialog.modal::backdrop {
   #format .toolbar-group > .primary {
     min-width: 112px;
   }
-  #home header nav > a.icon-link {
+  #home header nav > a.icon-link,
+  #guide header nav > a.icon-link {
     display: inline-flex;
   }
 }
@@ -1786,5 +1787,411 @@ dialog.modal::backdrop {
     #format .settings.open {
       transition: none;
     }
+  }
+}
+
+/* 入口卡片与教程页共用的主按钮。 */
+.entry-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--red);
+  color: #fff;
+  padding: 11px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  transition: background-color 160ms ease;
+}
+.entry-action:hover {
+  background: #963c30;
+}
+.entry-more {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--red);
+}
+.entry-more:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Obsidian 插件教程页 */
+#guide .guide-hero {
+  max-width: 1120px;
+  margin: auto;
+  padding: 60px 0 48px;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  align-items: center;
+  gap: 56px;
+}
+#guide .guide-hero h1 {
+  font-size: 48px;
+}
+#guide .guide-hero .lead {
+  max-width: 460px;
+  text-wrap: pretty;
+}
+#guide .guide-download {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 380px;
+  margin-top: 28px;
+}
+#guide .guide-download small {
+  font-size: 12px;
+  line-height: 1.8;
+}
+#guide .guide-glance {
+  list-style: none;
+  margin: 0;
+  padding: 10px 28px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  counter-reset: step;
+}
+#guide .guide-glance li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  column-gap: 14px;
+  padding: 16px 0;
+  font-size: 13px;
+  line-height: 1.8;
+}
+#guide .guide-glance li + li {
+  border-top: 1px dashed var(--line);
+}
+#guide .guide-glance li::before {
+  content: counter(step);
+  grid-row: span 2;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--red);
+  border-radius: 50%;
+  color: var(--red);
+  display: grid;
+  place-items: center;
+  font-family: serif;
+  font-size: 13px;
+}
+#guide .guide-glance b {
+  font-weight: 600;
+}
+#guide .guide-glance span {
+  color: #7c7e75;
+}
+#guide .guide-body {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 44px 0 40px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 64px;
+}
+#guide .guide-toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  font-size: 13px;
+}
+#guide .guide-toc a {
+  display: flex;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: #6f716a;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+#guide .guide-toc a:hover {
+  background: var(--soft);
+  color: var(--ink);
+}
+#guide .guide-toc a span {
+  color: var(--red);
+  font-size: 11px;
+  letter-spacing: 1px;
+  line-height: 20px;
+}
+#guide .guide-article {
+  max-width: 760px;
+  font-size: 15px;
+  line-height: 1.95;
+  color: #3d403b;
+}
+#guide .guide-article section {
+  scroll-margin-top: 24px;
+  padding-bottom: 36px;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--line);
+}
+#guide .guide-article section:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+#guide .guide-article h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 16px;
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--ink);
+}
+#guide .guide-article h2 span {
+  font-family:
+    Inter,
+    -apple-system,
+    sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--red);
+}
+#guide .guide-article h3 {
+  margin: 28px 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+#guide .guide-article p {
+  margin: 10px 0;
+}
+#guide .guide-article b {
+  font-weight: 600;
+  color: var(--ink);
+}
+#guide .guide-article a:not(.entry-action) {
+  color: var(--red);
+  text-decoration: underline;
+  text-decoration-color: #ac493a55;
+  text-underline-offset: 3px;
+}
+#guide .guide-article ul {
+  margin: 12px 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+#guide .guide-article ul li {
+  margin: 6px 0;
+}
+#guide .guide-article ul li::marker {
+  color: var(--muted);
+}
+#guide .guide-article ol.steps {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  counter-reset: step;
+}
+#guide .guide-article ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  margin: 10px 0;
+  padding-left: 38px;
+}
+#guide .guide-article ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--red);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+#guide code {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.86em;
+  background: #f3f1ec;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: 0 2px;
+  color: #6d5a3f;
+  overflow-wrap: anywhere;
+}
+#guide kbd {
+  font-family: inherit;
+  font-size: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+#guide .icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin: 0 2px;
+  vertical-align: -3px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#guide .note {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--red);
+  border-radius: 0 6px 6px 0;
+  background: #faf8f3;
+  font-size: 14px;
+  line-height: 1.85;
+}
+#guide .caption {
+  font-size: 13px;
+  color: var(--muted);
+}
+#guide .table-scroll {
+  overflow-x: auto;
+  margin: 14px 0;
+}
+#guide table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.8;
+}
+#guide th,
+#guide td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+#guide thead th {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: var(--muted);
+  background: #faf9f6;
+}
+#guide tbody th {
+  width: 150px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+#guide .mock-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 6px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fafaf8;
+  font-size: 12px;
+  color: #555;
+  overflow-x: auto;
+}
+#guide .mock-seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 6px;
+  background: #ebe9e3;
+  white-space: nowrap;
+}
+#guide .mock-seg span {
+  padding: 2px 9px;
+  border-radius: 4px;
+}
+#guide .mock-seg span.on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px #0000001a;
+}
+#guide .mock-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  white-space: nowrap;
+}
+#guide .mock-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+#guide .mock-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+@media (max-width: 1100px) {
+  #guide .guide-hero,
+  #guide .guide-body {
+    margin-left: 28px;
+    margin-right: 28px;
+  }
+  #guide .guide-body {
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+@media (max-width: 720px) {
+  #guide .guide-hero {
+    display: block;
+    margin: 0 20px;
+    padding: 40px 0 32px;
+  }
+  #guide .guide-hero h1 {
+    font-size: 38px;
+  }
+  #guide .guide-glance {
+    margin-top: 32px;
+    padding: 4px 20px;
+  }
+  #guide .guide-body {
+    display: block;
+    margin: 0 20px;
+    padding-top: 28px;
+  }
+  #guide .guide-toc {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 32px;
+  }
+  #guide .guide-toc a {
+    padding: 3px 10px;
+    border: 1px solid var(--line);
+    font-size: 12px;
+  }
+  #guide .guide-toc a span {
+    line-height: 18px;
+  }
+  #guide .guide-article h2 {
+    font-size: 22px;
+  }
+  #guide tbody th {
+    width: auto;
+  }
+  #guide .mock-toolbar {
+    flex-wrap: wrap;
+  }
+  #guide footer {
+    margin: 0 20px;
+    gap: 12px;
+    flex-direction: column;
   }
 }

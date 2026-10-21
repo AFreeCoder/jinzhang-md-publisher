@@ -1,6 +1,6 @@
 # 锦章一期设计：Obsidian 插件
 
-状态：已评审，2026-09-30 定稿（issue #12）；同日实现合入（PR #19），真实账号验收与首个 BRAT 发布待做。2026-09-08 起草，2026-09-30 按已实现的 core 与合并后的 architecture.md、skill.md 重写，同日合并 Codex 评审。上游：[需求文档](../../requirements/product-v1/requirements.md) 功能 2、5、6、12、13、15、16、18 至 28、31 与业务规则 6.1 至 6.6；过程记录在 [issue #12](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/12)（插件）与 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)（总体架构）。总体架构与 core 见 [architecture.md](architecture.md)，本文只写插件这个壳。
+状态：已评审，2026-09-30 定稿（issue #12）；同日实现合入（PR #19）并发布 GitHub Release（BRAT），2026-10-21 起网站提供下载与教程；真实账号验收待做。2026-09-08 起草，2026-09-30 按已实现的 core 与合并后的 architecture.md、skill.md 重写，同日合并 Codex 评审。上游：[需求文档](../../requirements/product-v1/requirements.md) 功能 2、5、6、12、13、15、16、18 至 28、31 与业务规则 6.1 至 6.6；过程记录在 [issue #12](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/12)（插件）与 [issue #4](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/4)（总体架构）。总体架构与 core 见 [architecture.md](architecture.md)，本文只写插件这个壳。
 
 ## 1. 结论
 
@@ -10,7 +10,7 @@
 - 网络走 Obsidian 的 `requestUrl`：它在主进程发请求，没有跨域限制，可以带 `Cookie`、`Origin`、`Referer`；multipart 手工拼装。四个同类公众号插件都这样做
 - 预览是右侧栏视图，`iframe` 加 `sandbox` 与样式隔离，跟随当前笔记
 - 知乎登录在插件弹窗里用 `webview` 打开知乎登录页，扫码后读取会话 cookie 写入共享文件；读不到时退化为粘贴 cookie
-- 分发先走 BRAT，用本仓库的 GitHub Release；社区上架是二期
+- 分发：网站 `jinzhang.ink/obsidian` 提供安装包下载与使用教程；BRAT 用本仓库的 GitHub Release 自动更新；社区上架是二期
 - 第一版先可用：不做手机宽度切换、模板实时预览这类体验项（预览跟随编辑器滚动已于 0.1.4 补上，见第 5 节），也不做结果不确定时「绑定已有草稿」的界面，等日常用起来再按需补
 
 ## 2. 工程结构
@@ -145,7 +145,8 @@ core 只认标准 Markdown，Obsidian 的写法由插件在交给 core 前转换
 
 - BRAT 从 GitHub Release 的附件读取 `manifest.json`、`main.js`、`styles.css`，并按语义化版本号取最新的正式版或预发布版。所以本仓库的 GitHub Release 只用于插件：网页版按镜像发布、命令行发到 npm，都不建 GitHub Release
 - 发布：tag 等于 `manifest.json` 的版本号，不带 `v`；GitHub Actions 在推 tag 时校验版本一致、构建、创建 Release 并上传三件套；`versions.json` 记录版本到 `minAppVersion` 的映射
-- BRAT 用户填仓库地址 `AFreeCoder/jinzhang-md-publisher` 即可安装与更新；首个版本发布后，门户的插件卡片通过 `JINZHANG_OBSIDIAN_REPO` 显示这个地址
+- 网站直接下载（2026-10-21 起）：镜像构建时从同一份源码构建插件，打成 `jinzhang-obsidian-<版本>.zip`（内含 `jinzhang/` 文件夹与三件套），国内用户不依赖 GitHub。首页插件卡片直接下载，`/obsidian` 是安装与使用教程（web.md 2.4）。网站随镜像部署更新，插件发版后要部署包含该版本的镜像，网站下载才是新版
+- BRAT 用户填仓库地址 `AFreeCoder/jinzhang-md-publisher` 即可安装与自动更新，教程页里写明
 - 社区上架（二期）要求仓库根目录、默认分支上有插件的 `manifest.json`，Obsidian 按它判断最新版本。到时在「根目录放插件 manifest」与「单独建一个发布仓库」之间选，不影响第一版
 
 ## 13. 与需求的映射
@@ -166,7 +167,7 @@ core 只认标准 Markdown，Obsidian 的写法由插件在交给 core 前转换
 | 26 配置一次两处可用 | 3、10 |
 | 27 白名单引导 | 10 |
 | 28 知乎登录 | 11 |
-| 31 Obsidian 插件 | 全文；私有写法见 4，BRAT 见 12 |
+| 31 Obsidian 插件 | 全文；私有写法见 4，分发（网站下载与 BRAT）见 12 |
 | 场景 S1、S3、S5、S6、S7 | 5 至 11 |
 
 ## 14. 待实测
@@ -199,3 +200,4 @@ core 只认标准 Markdown，Obsidian 的写法由插件在交给 core 前转换
 - 2026-10-16 预览改为就地更新正文并复用图片 blob 地址，编辑时不再整页重载闪动（第 5 节）
 - 2026-10-16 预览滚动跟随编辑器，以标题为锚点插值（第 5 节），第 1 节不做项里去掉同步滚动
 - 2026-10-20 按用户要求，复制到知乎不再依赖知乎登录：本地图片走网页版的锦章中转，网络图片保留原地址（第 8 节）；预览工具栏的体检与推送只针对当前选中的平台（第 5 节，0.1.5）
+- 2026-10-21 按用户要求，网站提供插件安装包下载与使用教程（第 1、12 节），门户卡片不再用 `JINZHANG_OBSIDIAN_REPO` 显示仓库地址。来源 [issue #32](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/32)

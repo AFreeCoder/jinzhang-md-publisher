@@ -35,7 +35,7 @@
 | 投递适配器 `./publish`：错误模型、体检、公众号与知乎（第 8、10、11 节） | 已实现，随插件合入；与本文的出入记在 issue #12 的批次快照，本文未回改 | `packages/core/src/publish/` |
 | 共享文件读写 `./node`：配置、凭证、状态、模板、写锁（第 9 节） | 已实现，随插件合入 | `packages/core/src/node.ts`、`local.ts` |
 | `./browser` 里网页与插件共用的 data URL 归位（第 5 节） | 已实现，网页 `CopyImageStore` 的公众号分支已改为调用它 | `packages/core/src/browser.ts` 的 `DataUrlImageStore` |
-| Obsidian 插件 | 已实现，2026-09-30 合入；真实账号验收与首个 BRAT 发布待做 | `apps/obsidian`，见 [obsidian-plugin.md](obsidian-plugin.md) |
+| Obsidian 插件 | 已实现并发布，网站下载与 BRAT 两种安装；真实账号验收待做 | `apps/obsidian`，见 [obsidian-plugin.md](obsidian-plugin.md) |
 | `:::card` 名片、本地形态的开头样式一与结尾样式一（第 6 节） | 已实现，2026-10-07 | `packages/core/src/wechat-html.ts`、`local.ts` 的 `localFixed` |
 | `:::recent` 按平台的样式（第 6 节） | 未实现，目前只输出为普通 `section` | 无 |
 | 命令行、skill | 未实现，复用 `./publish` 与 `./node` | 无 |

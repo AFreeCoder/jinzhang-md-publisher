@@ -60,10 +60,10 @@ pnpm --filter @jinzhang/web start
 
 - `packages/core`：共享解析、清理、平台规则、CSS 主题、图片接口、浏览器资源适配与预览壳；`./publish` 是公众号与知乎的投递适配器，`./node` 读写命令行与插件共用的配置目录 `~/.config/jinzhang/`（`JINZHANG_HOME` 可改）；tsup 生成 ESM/CJS 及类型声明。
 - `apps/web`：Next.js 门户、排版工作区、剪贴板流程与图片中转 API。
-- `apps/obsidian`：Obsidian 插件（桌面端）：右侧栏预览、推送到公众号与知乎草稿箱、复制、封面与设置页。`pnpm build:obsidian` 产出 `apps/obsidian/dist/` 下的 `main.js`、`manifest.json`、`styles.css`，复制到 vault 的 `.obsidian/plugins/jinzhang/` 即可本地试用；正式分发走 BRAT，推送与 `manifest.json` 版本相同的 tag 时由 `obsidian-release.yml` 创建 Release。
+- `apps/obsidian`：Obsidian 插件（桌面端）：右侧栏预览、推送到公众号与知乎草稿箱、复制、封面与设置页。`pnpm build:obsidian` 产出 `apps/obsidian/dist/` 下的 `main.js`、`manifest.json`、`styles.css`，并打包成网站下载用的 `apps/web/public/downloads/jinzhang-obsidian-<版本>.zip`；三件套复制到 vault 的 `.obsidian/plugins/jinzhang/` 即可本地试用。用户从 https://jinzhang.ink/obsidian 下载安装包并按教程安装，或用 BRAT 自动更新：推送与 `manifest.json` 版本相同的 tag 时由 `obsidian-release.yml` 创建 Release。
 - `fixtures`：标准测试文章与图片；主题/平台快照以此作为回归输入。
 - `prototypes/web-v1`：开发前可点击设计稿，保留原始截图作设计参考。
 
-命令行与 Skill 尚未实现。首页相应安装信息通过 `JINZHANG_SKILL_INSTALL`、`JINZHANG_OBSIDIAN_REPO` 在构建时注入（生产镜像取自仓库的 Actions 变量，见 `docs/deployment.md`）；未发行时如实显示准备中。
+命令行与 Skill 尚未实现。首页的 Skill 安装信息通过 `JINZHANG_SKILL_INSTALL` 在构建时注入（生产镜像取自仓库的 Actions 变量，见 `docs/deployment.md`）；未发行时如实显示准备中。
 
 真实平台验收与实施记录留在 [Issue #5](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/5)。原始技术结论见 `docs/design/product-v1/web.md` 和 `architecture.md`。需要真实 OSS 与平台测试资源才能验证签名链接抓取、平台保存后重开、Safari 大体积剪贴板等门禁；本地测试不代替这些结果。

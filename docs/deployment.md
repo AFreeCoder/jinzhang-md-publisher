@@ -14,7 +14,7 @@
 
 源码基线为 fetch 后的 `origin/main`。修改 Next.js / core 时运行 `pnpm check` 与 `PLAYWRIGHT_CHANNEL=chrome pnpm test:e2e`；Linux CI 使用 Chromium。原有 Check 工作流必须成功。
 
-`.github/workflows/image.yml` 在 main 或初次部署分支推送时构建 Linux 镜像，标签为 `ghcr.io/afreecoder/jinzhang:sha-<完整提交>`；生产按镜像 digest 部署。流水线仅构建，不自动改动服务器。首页是构建时预渲染的静态页，安装入口取自仓库的 Actions 变量 `JINZHANG_OBSIDIAN_REPO`、`JINZHANG_SKILL_INSTALL`（`gh variable set`），在镜像构建时注入，写在服务器 `.env.production` 里不生效；改变量后要重新构建镜像（`workflow_dispatch` 或下一次推送 main）再部署。
+`.github/workflows/image.yml` 在 main 或初次部署分支推送时构建 Linux 镜像，标签为 `ghcr.io/afreecoder/jinzhang:sha-<完整提交>`；生产按镜像 digest 部署。流水线仅构建，不自动改动服务器。首页是构建时预渲染的静态页，Skill 安装入口取自仓库的 Actions 变量 `JINZHANG_SKILL_INSTALL`（`gh variable set`），在镜像构建时注入，写在服务器 `.env.production` 里不生效；改变量后要重新构建镜像（`workflow_dispatch` 或下一次推送 main）再部署。Obsidian 插件安装包 `/downloads/jinzhang-obsidian-<版本>.zip` 由镜像构建从同一提交的源码生成；插件发版（推 tag）后要部署包含该版本的镜像，网站下载才会更新。
 
 发布时先备份部署目录（包含私密环境文件，备份保持 0700/0600）与 `/etc/caddy/Caddyfile`，记录旧镜像 digest，并把当前 `.env` 另存为 `.env.previous`。核对新镜像标签中的 revision 与候选提交一致，并先验证 HAProxy 配置：
 
@@ -32,7 +32,7 @@ Caddy 站点片段见 `deploy/Caddyfile`。首次部署在完整配置备份后�
 
 ## 验收与恢复
 
-`/api/health` 返回实际 `APP_REVISION` 和配置齐备状态；它不代替 OSS 连通性验收。公开首页、工作区、静态资源、HTTP 到 HTTPS、www 到主域名跳转都必须正常。需验证真实图片签名 → OSS 上传 → 服务端完整校验 → 签名读取、无效图片拒绝、429 与限额恢复，以及浏览器排版与复制。
+`/api/health` 返回实际 `APP_REVISION` 和配置齐备状态；它不代替 OSS 连通性验收。公开首页、工作区、插件教程页 `/obsidian` 与安装包下载、静态资源、HTTP 到 HTTPS、www 到主域名跳转都必须正常。需验证真实图片签名 → OSS 上传 → 服务端完整校验 → 签名读取、无效图片拒绝、429 与限额恢复，以及浏览器排版与复制。
 
 通过 `docker compose ps`、`docker compose logs --tail=80`、`docker stats --no-stream` 检查状态。保留上一镜像及配置备份；升级失败时用 `.env.previous` 恢复旧 digest 和对应 Compose/HAProxy 配置，再 `docker compose up -d --wait`。首次上线无旧应用可回滚时，移除仅本次新增的 Caddy 站点并验证后 reload，再停止本项目容器；保留其他站点配置。DNS 可恢复原 DNSPod NS，但传播并非即时。
 
