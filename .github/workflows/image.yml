@@ -1,14 +1,22 @@
-name: Container image
+name: Build and Deploy
 on:
   push:
-    branches: [main, codex/silicon-deploy]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
-  packages: write
 jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/check.yml
   image:
+    needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ghcr.io/afreecoder/jinzhang@${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -18,8 +26,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
+        id: build
         with:
           context: .
+          platforms: linux/amd64
           push: true
           tags: ghcr.io/afreecoder/jinzhang:sha-${{ github.sha }}
           # Skill 安装入口取自仓库的 Actions 变量，未设置时为空，首页显示「即将提供」。
@@ -28,3 +38,16 @@ jobs:
             JINZHANG_SKILL_INSTALL=${{ vars.JINZHANG_SKILL_INSTALL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+  deploy:
+    needs: image
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      revision: ${{ github.sha }}
+      image: ${{ needs.image.outputs.image }}
+    secrets:
+      SILICON_HOST: ${{ secrets.SILICON_HOST }}
+      SILICON_SSH_PRIVATE_KEY: ${{ secrets.SILICON_SSH_PRIVATE_KEY }}
+      SILICON_SSH_KNOWN_HOSTS: ${{ secrets.SILICON_SSH_KNOWN_HOSTS }}
