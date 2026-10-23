@@ -1,0 +1,41 @@
+name: Deploy to Silicon
+on:
+  workflow_call:
+    inputs:
+      revision:
+        required: true
+        type: string
+      image:
+        required: true
+        type: string
+    secrets:
+      SILICON_HOST:
+        required: true
+      SILICON_SSH_PRIVATE_KEY:
+        required: true
+      SILICON_SSH_KNOWN_HOSTS:
+        required: true
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: jinzhang-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy checked image
+        env:
+          DEPLOY_REVISION: ${{ inputs.revision }}
+          DEPLOY_IMAGE: ${{ inputs.image }}
+          SILICON_HOST: ${{ secrets.SILICON_HOST }}
+          SILICON_SSH_PRIVATE_KEY: ${{ secrets.SILICON_SSH_PRIVATE_KEY }}
+          SILICON_SSH_KNOWN_HOSTS: ${{ secrets.SILICON_SSH_KNOWN_HOSTS }}
+          GHCR_TOKEN: ${{ github.token }}
+        run: bash scripts/deploy-ssh.sh

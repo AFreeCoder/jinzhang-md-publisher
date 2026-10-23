@@ -56,6 +56,8 @@ pnpm --filter @jinzhang/web start
 
 需要 Node 服务端运行时；不能用静态导出替代图片接口。生产环境使用 HTTPS，并按实际域名配置 Origin、OSS CORS 与限流。
 
+合入 `main` 后，GitHub Actions 按顺序自动完成检查、镜像构建和 silicon 部署；Codex 跟踪任务结果并进行线上验收。首次启用所需的部署凭据、备份与失败恢复见 [部署说明](docs/deployment.md)。
+
 ## 目录与范围
 
 - `packages/core`：共享解析、清理、平台规则、CSS 主题、图片接口、浏览器资源适配与预览壳；`./publish` 是公众号与知乎的投递适配器，`./node` 读写命令行与插件共用的配置目录 `~/.config/jinzhang/`（`JINZHANG_HOME` 可改）；tsup 生成 ESM/CJS 及类型声明。
