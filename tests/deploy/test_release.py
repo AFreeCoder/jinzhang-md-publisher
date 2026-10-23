@@ -68,8 +68,12 @@ elif tool == "docker":
         elif command == "config" and mode == "config": sys.exit(1)
         elif command == "run":
             assert args[args.index("--entrypoint") + 1] == "haproxy"
+            # HAProxy 以不同的非 root 用户运行，必须能读取绑定挂载的配置。
+            assert (folder / "haproxy.cfg").stat().st_mode & 0o004, "HAProxy cannot read configuration"
+            assert (folder / ".env.production").stat().st_mode & 0o077 == 0
             if mode == "haproxy": sys.exit(1)
         elif command == "up":
+            assert (folder / "haproxy.cfg").stat().st_mode & 0o004, "HAProxy cannot read configuration"
             state["image"] = (folder / ".env").read_text().strip().split("=", 1)[1]
             state.setdefault("started", []).append(state["image"])
             save()

@@ -64,6 +64,8 @@ fi
 docker pull "$image"
 test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$revision"
 cp "$source_dir/compose.yaml" "$source_dir/haproxy.cfg" "$candidate/"
+# HAProxy 以非 root 用户读取挂载配置；密钥文件和临时目录仍保持私有权限。
+chmod 644 "$candidate/haproxy.cfg"
 cp "$deploy_dir/.env.production" "$candidate/.env.production"
 printf 'JINZHANG_IMAGE=%s\n' "$image" > "$candidate/.env"
 docker compose --project-directory "$candidate" -f "$candidate/compose.yaml" config --quiet
@@ -94,6 +96,7 @@ recover() {
   if cp "$backup/.env" "$deploy_dir/.env" &&
      cp "$backup/compose.yaml" "$deploy_dir/compose.yaml" &&
      cp "$backup/haproxy.cfg" "$deploy_dir/haproxy.cfg" &&
+     chmod 644 "$deploy_dir/haproxy.cfg" &&
      compose up -d --force-recreate --wait --wait-timeout 120 web gateway &&
      wait_ready "$local_origin" "$old_revision" &&
      wait_ready "$public_origin" "$old_revision"; then
@@ -111,6 +114,7 @@ recover() {
 trap recover ERR HUP INT TERM
 cp "$candidate/compose.yaml" "$deploy_dir/compose.yaml"
 cp "$candidate/haproxy.cfg" "$deploy_dir/haproxy.cfg"
+chmod 644 "$deploy_dir/haproxy.cfg"
 cp "$candidate/.env" "$deploy_dir/.env"
 compose up -d --force-recreate --wait --wait-timeout 120 web gateway
 wait_ready "$local_origin" "$revision"
