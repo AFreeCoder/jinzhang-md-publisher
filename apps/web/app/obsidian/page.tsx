@@ -139,8 +139,7 @@ export default function ObsidianGuide() {
           <li>
             <b>打开预览</b>
             <span>
-              点左侧功能区的 <Icon name="newspaper" label="报纸图标" />
-              ，右侧栏出现成品
+              右侧栏多出 <Icon name="newspaper" label="报纸图标" /> 标签页，点开就是成品
             </span>
           </li>
         </ol>
@@ -207,9 +206,10 @@ export default function ObsidianGuide() {
           <section id="preview">
             <Heading id="preview">打开预览</Heading>
             <p>
-              点左侧功能区的 <Icon name="newspaper" label="报纸图标" />
-              （悬停显示「打开锦章预览」），或按 <kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>P</kbd>{' '}
-              打开命令面板，输入「锦章」选择「打开预览」。预览出现在右侧栏，已经打开时会切过去。
+              启用插件后，右侧栏会多一个 <Icon name="newspaper" label="报纸图标" />{' '}
+              标签页（悬停显示「锦章预览」），点开就是成品。不小心关掉了，按 <kbd>Ctrl</kbd> /{' '}
+              <kbd>⌘</kbd> + <kbd>P</kbd> 打开命令面板，输入「锦章」选择「打开预览」；下次启动
+              Obsidian 时也会自动补回右侧栏。
             </p>
             <ul>
               <li>预览跟随当前笔记：编辑后约半秒自动刷新，还没保存的改动也算在内。</li>

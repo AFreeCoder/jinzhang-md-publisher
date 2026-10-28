@@ -72,7 +72,7 @@ core 只认标准 Markdown，Obsidian 的写法由插件在交给 core 前转换
 
 ## 5. 预览视图
 
-- `ItemView`，视图类型 `jinzhang-preview`；命令「打开预览」或左侧功能区的锦章按钮在右侧栏打开，已打开则切过去
+- `ItemView`，视图类型 `jinzhang-preview`，常驻右侧栏：启动（布局就绪）时右侧栏没有预览就补一个标签页，不切换过去；命令「打开预览」在右侧栏打开，已打开则切过去。左侧功能区不放按钮（0.1.2 起放过，2026-10-29 按用户要求去掉）
 - 工具栏：平台切换（公众号 / 知乎）、主题（只在公众号下可选）、封面按钮（显示当前封面来源，点击进封面选择）、复制、体检、推送，以及推送到博客。复制、体检、推送都只针对当前选中的平台（体检只检查不推送）；同时推多个目标用命令「推送到默认平台」。博客由网站自己渲染 Markdown，不进平台切换（第 16 节）。用 Obsidian 原生控件
 - 内容区是一个 `iframe`，`sandbox="allow-same-origin"`，`srcdoc` 由 `previewDocument` 生成，与网页版同一个预览壳；宽度就是侧栏宽度，用户拖动侧栏即可看窄屏效果。预览里点 http(s) 链接用系统浏览器打开，不在 iframe 里跳转（跳到外站后 iframe 成了跨域页面，预览会变空白）；万一 iframe 被导航到别处，下次排版重设 `srcdoc` 即恢复
 - 跟随当前笔记：监听 `active-leaf-change`、`editor-change`、`vault.modify`，500 毫秒防抖；每次排版取一份编辑器文本快照（含未保存的改动）；每次排版带递增的版本号，晚返回的旧结果丢弃；视图不可见时不排版
@@ -230,3 +230,4 @@ core 只认标准 Markdown，Obsidian 的写法由插件在交给 core 前转换
 - 2026-10-21 按用户要求，网站提供插件安装包下载与使用教程（第 1、12 节），门户卡片不再用 `JINZHANG_OBSIDIAN_REPO` 显示仓库地址。来源 [issue #32](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/32)
 - 2026-10-28 按用户要求，封面改为从本地选择或粘贴剪贴板图片，选中后才存进附件目录并按规范命名，不再从 vault 图片里搜（第 9 节，0.1.8）。来源 [issue #39](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/39)
 - 2026-10-28 按用户要求新增推送到博客（首个 GPT101，推送即发布）与长期图床（第 16 节）；复制到知乎的本地图片改传长期图床，不再经过网页版的中转（第 8 节）；工具栏、命令与设置页相应增加（第 1、5、6、10 节，0.1.9）。来源 [issue #38](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/38)
+- 2026-10-29 按用户要求去掉左侧功能区的锦章按钮，预览常驻右侧栏：启动时右侧栏没有预览就补一个标签页（第 5 节，0.2.0）
