@@ -80,7 +80,8 @@ export default class JinzhangPlugin extends Plugin {
     this.vault = new ObsidianVault(this.app);
     this.host = createHost(this.app, this.files, this.vault, this.basePath);
     this.registerView(VIEW_TYPE, (leaf) => new PreviewView(leaf, this));
-    this.addRibbonIcon('newspaper', '打开锦章预览', () => void this.openPreview());
+    // 预览常驻右侧栏，不在左侧功能区放按钮：启动时右侧栏没有预览就补一个标签页，不抢当前标签。
+    this.app.workspace.onLayoutReady(() => void this.ensurePreview());
     const note = (run: (file: TFile) => void) => (checking: boolean) => {
       const file = this.app.workspace.getActiveFile();
       if (!file || file.extension !== 'md') return false;
@@ -133,6 +134,11 @@ export default class JinzhangPlugin extends Plugin {
   }
   async savePrefs() {
     await this.saveData(this.prefs);
+  }
+  /** 右侧栏里没有预览时补一个，不切换过去。 */
+  async ensurePreview() {
+    if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length) return;
+    await this.app.workspace.getRightLeaf(false)?.setViewState({ type: VIEW_TYPE, active: false });
   }
   /** 在右侧栏打开预览，已打开则切过去。 */
   async openPreview() {
