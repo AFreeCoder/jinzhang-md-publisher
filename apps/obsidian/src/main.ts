@@ -211,8 +211,10 @@ export default class JinzhangPlugin extends Plugin {
       return;
     }
     if (blogs.length === 1) return this.pushNote(file, [blogTarget(blogs[0].id)]);
-    new BlogChoiceModal(this.app, blogs, (blog) =>
-      void this.pushNote(file, [blogTarget(blog.id)]),
+    new BlogChoiceModal(
+      this.app,
+      blogs,
+      (blog) => void this.pushNote(file, [blogTarget(blog.id)]),
     ).open();
   }
   /** 推送（设计第 7 节）：体检、确认、逐平台投递、结果；同一篇笔记推送期间不允许重复触发。 */

@@ -38,6 +38,7 @@
 | Obsidian 插件 | 已实现并发布，网站下载与 BRAT 两种安装；真实账号验收待做 | `apps/obsidian`，见 [obsidian-plugin.md](obsidian-plugin.md) |
 | `:::card` 名片、本地形态的开头样式一与结尾样式一（第 6 节） | 已实现，2026-10-07 | `packages/core/src/wechat-html.ts`、`local.ts` 的 `localFixed` |
 | `:::recent` 按平台的样式（第 6 节） | 未实现，目前只输出为普通 `section` | 无 |
+| 博客投递（文章接口，首个 GPT101）与长期图床（第 8 节） | 已实现，2026-10-28，本地形态（插件）使用 | `packages/core/src/publish/blog.ts`、`oss.ts`，见 [obsidian-plugin.md](obsidian-plugin.md) 第 16 节 |
 | 命令行、skill | 未实现，复用 `./publish` 与 `./node` | 无 |
 
 其余各节按已实现的代码写实际接口；未实现的部分保持设计，在对应小节标出。
@@ -237,7 +238,7 @@ interface ImageStore {
 - 两张映射表：「原始引用 → 资源」决定文章里哪一处引用对应哪个文件，缺图时按引用逐条绑定；「内容 SHA-256 → 字节」只做去重。哈希不能替代引用绑定：用户补上一张 `a.png`，要由用户指明它对应原文的哪个引用（Codex 评审 W4）
 - 去重：同一次推送按内容 SHA-256 去重；跨次推送查 `state.images[hash][platform]`，命中则不再上传
 - 封面：优先单独指定的图；否则正文第一张图，固定开头里的图不算候选；两者都没有时公众号阻止（封面必填），知乎警告后继续。公众号封面走永久素材 `add_material`，`media_id` 按内容哈希缓存在 `state.covers`；同一张图既做封面又在正文里时，正文走 `uploadimg`，封面走永久素材，两次上传、两个结果
-- 与平台无关的 data URL 归位（按 `clipboard` 档规范化后内嵌）放在 `./browser`，网页版与插件共用。网页版的 `CopyImageStore(platform)` 已改为调用它（`DataUrlImageStore`），知乎中转：网页版在 `apps/web/lib/clipboard.ts`，插件在 `apps/obsidian/src/transit.ts`（经 `requestUrl` 带本站 Origin 调同一组接口），见 [web.md](web.md) 第 4 节；命令行仍不接中转
+- 与平台无关的 data URL 归位（按 `clipboard` 档规范化后内嵌）放在 `./browser`，网页版与插件共用。网页版的 `CopyImageStore(platform)` 已改为调用它（`DataUrlImageStore`），知乎中转只属于网页版（`apps/web/lib/clipboard.ts`，见 [web.md](web.md) 第 4 节），中转桶可能被外人使用，本地形态不接；插件复制到知乎时，本地图片原样传到用户自己的长期图床（`./publish` 的 `LongTermImageStore`，与博客共用同一份对象），见 [obsidian-plugin.md](obsidian-plugin.md) 第 8、16 节
 - 失败信息必须带上原始引用：`IMAGE_DOWNLOAD_FAILED: ./images/a.png`
 
 ## 6. 固定内容
@@ -285,6 +286,8 @@ core 的通用机制（两种形态共用）：
 ## 8. 投递适配器
 
 已实现（`packages/core/src/publish/`，issue #12）；与本节的出入记在 issue #12 批次 2 快照，本节未回改。
+
+公众号与知乎的适配器接收排版成品（HTML）。博客（`blog.ts`）是另一类投递目标：网站自己渲染 Markdown，适配器接收预处理后的 Markdown，本地图片经 `oss.ts` 传到用户的长期图床（阿里云 OSS，V4 签名用 WebCrypto 实现，产物不带 ali-oss）后改写地址，再调文章接口；目标写作 `blog:<id>`，细节见 [obsidian-plugin.md](obsidian-plugin.md) 第 16 节。
 
 ```ts
 interface Publisher {
@@ -342,7 +345,7 @@ type PushResult =
 ```
 ~/.config/jinzhang/
 ├── config.json           # 公共配置，可提交到任何地方都不泄密
-├── credentials.json      # 公众号 AppID 与 AppSecret（0600）
+├── credentials.json      # 公众号 AppID 与 AppSecret、长期图床 oss、博客 API Key（0600）
 ├── wechat-token.json     # 公众号 access_token 缓存（0600）
 ├── zhihu-session.json    # 知乎 cookie 与用户信息（0600）
 ├── state.json            # 文章级选择、草稿映射、图片与封面缓存、出口 IP
@@ -363,6 +366,7 @@ type PushResult =
   "author": "AFreeCoder",
   "theme": "sspai",
   "targets": ["wechat", "zhihu"],
+  "blogs": [{ "id": "gpt101", "name": "GPT101", "url": "https://gpt101.org" }],
   "fixed": { "wechat": { "header": true, "footer": true }, "zhihu": { "header": false, "footer": true } },
   "wechat": {
     "card": { "enabled": false, "mpId": "", "nickname": "", "headImg": "", "signature": "", "serviceType": 1, "verifyStatus": 1 },
@@ -374,6 +378,7 @@ type PushResult =
 
 - `fixed`、`wechat.card`、`wechat.start` 与 `author` 的含义见第 6 节：公众号的 `header`、`footer` 是开头样式一、结尾样式一的开关，知乎只有 `footer`
 - `templates/wechat/footer.md`、`templates/zhihu/footer.md` 是两段结尾 Markdown；两个 `header.md` 目前不读取
+- `blogs` 是通过文章接口推送的博客，缺省时只有 GPT101；`targets` 里的博客写作 `blog:<id>`，不存在的博客读取时丢弃。博客文章的映射存在 `state.json` 的 `drafts[<源文件>].blogs[<id>]`（slug、上次推送的标题与正文摘要、状态）
 
 `state.json`：
 
@@ -521,3 +526,4 @@ issue #1 快照 9 的八项实测，按它们各自影响的设计决策归位�
 - 2026-09-30 投递适配器、配置目录读写与 Obsidian 插件实现合入（issue #12，PR #17、#18、#19）：第 1 节实现状态与第 2、3、5、6、8 至 11 节的「未实现」标注更新；接口与实现的出入不回改，记在 issue #12 的批次快照
 - 2026-10-07 按用户要求与本机 my-toolbox 对齐（issue #12）：少数派与公众号原生两套主题的取值改为与 my-toolbox 同名主题一致，代码块带红黄绿圆点，图片带圆角与阴影，表格样式写成属性，嵌套列表保留原生结构（第 4.1、7 节）；实现 `:::card` 名片，本地形态的固定内容改为「开头样式一、结尾样式一、账号名片、知乎默认结尾」，配置加 `wechat.card.enabled` 与 `wechat.start`（第 6、9 节）；主题的 `!important` 带到成品，文字节点上与根容器重复的声明交给继承（第 4 节阶段 8、9）
 - 2026-10-20 代码块圆点改为内联 SVG，公众号不再把它删成代码上方的空行；少数派斜体由灰色改为蓝色 `#3daad6`（issue #27，第 4.1 节）
+- 2026-10-28 按用户要求新增博客投递与长期图床（issue #38）：第 1 节加实现状态；第 5 节知乎中转改为只属于网页版，本地形态复制到知乎改传用户的长期图床；第 8 节补博客这类以 Markdown 为输入的投递目标；第 9 节凭证文件增加 `oss` 与博客 API Key

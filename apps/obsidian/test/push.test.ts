@@ -216,7 +216,9 @@ describe('推送流程', () => {
       publisher: () => zhihu.publisher,
       blog,
     });
-    const ui = (pick: (plans: PlatformPlan[]) => Map<Target, { slug?: string; overwrite?: boolean }> | null) => ({
+    const ui = (
+      pick: (plans: PlatformPlan[]) => Map<Target, { slug?: string; overwrite?: boolean }> | null,
+    ) => ({
       confirm: vi.fn(async (plans: PlatformPlan[]) => pick(plans)),
       progress: vi.fn(),
       finish: vi.fn(),
@@ -247,7 +249,10 @@ describe('推送流程', () => {
       deps(fakeBlog(changed)),
       ['blog:gpt101'],
       ui((plans) => {
-        expect(plans[0]).toMatchObject({ status: 'confirm', confirm: { name: '覆盖网站上的版本' } });
+        expect(plans[0]).toMatchObject({
+          status: 'confirm',
+          confirm: { name: '覆盖网站上的版本' },
+        });
         expect(plans[0].slug?.editable).toBe(false);
         return new Map();
       }),

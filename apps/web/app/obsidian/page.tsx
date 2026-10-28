@@ -7,7 +7,7 @@ import { SiteHeader } from '../site-header';
 export const metadata: Metadata = {
   title: 'Obsidian 插件 · 锦章 Jinzhang',
   description:
-    '下载锦章 Obsidian 插件：在笔记旁预览公众号与知乎成品，复制到平台编辑器，或一键推送到草稿箱。附安装与使用教程。',
+    '下载锦章 Obsidian 插件：在笔记旁预览公众号与知乎成品，复制到平台编辑器，一键推送到草稿箱，或发布到自己的博客。附安装与使用教程。',
 };
 
 const sections = [
@@ -15,6 +15,7 @@ const sections = [
   ['preview', '打开预览'],
   ['copy', '复制到平台'],
   ['push', '推送到草稿箱'],
+  ['blog', '发布到博客'],
   ['style', '开头、结尾与名片'],
   ['syntax', 'Obsidian 写法'],
   ['commands', '命令一览'],
@@ -52,6 +53,13 @@ const icons = {
     <>
       <path d="m22 2-7 20-4-9-9-4Z" />
       <path d="M22 2 11 13" />
+    </>
+  ),
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
     </>
   ),
   folder: (
@@ -226,6 +234,9 @@ export default function ObsidianGuide() {
               <span className="mock-icon">
                 <Icon name="send" />
               </span>
+              <span className="mock-icon">
+                <Icon name="globe" />
+              </span>
             </div>
             <p className="caption">预览顶部的工具栏，从左到右：</p>
             <div className="table-scroll">
@@ -261,6 +272,12 @@ export default function ObsidianGuide() {
                     </th>
                     <td>推送到当前平台的草稿箱。</td>
                   </tr>
+                  <tr>
+                    <th>
+                      <Icon name="globe" /> 博客
+                    </th>
+                    <td>发布到你的博客，见「发布到博客」。博客由网站自己排版，不在这里预览。</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -268,7 +285,7 @@ export default function ObsidianGuide() {
 
           <section id="copy">
             <Heading id="copy">复制到平台编辑器</Heading>
-            <p>不用填任何账号，装好就能用。</p>
+            <p>不用登录平台账号。知乎正文里有本地图片时，要先配置长期图床（见「发布到博客」）。</p>
             <ol className="steps">
               <li>
                 在预览里选好平台，点工具栏的 <Icon name="copy" label="复制图标" />
@@ -279,9 +296,7 @@ export default function ObsidianGuide() {
             <ul>
               <li>公众号：图片随正文一起进剪贴板，粘贴后由公众号编辑器保存。</li>
               <li>
-                知乎：本地图片会临时传到锦章服务器，换成 24
-                小时有效的地址，知乎粘贴时会把图片转存到自己的图床；临时文件 1
-                天后自动删除。网络图片保留原地址，粘贴后请看一眼是否显示。
+                知乎：本地图片原样传到你自己的长期图床，换成公开地址，知乎粘贴时会把图片转存到自己的图床；同一张图之后发布到博客时直接复用。网络图片保留原地址，粘贴后请看一眼是否显示。
               </li>
               <li>复制的内容不含封面，封面请在平台编辑器里单独设置。</li>
               <li>
@@ -355,6 +370,58 @@ export default function ObsidianGuide() {
               </li>
               <li>
                 结果不确定：网络中断时可能不知道草稿建好没有，结果里会提示先去草稿箱确认。下次推送这篇时，确认弹窗里要勾选「草稿箱里没有对应草稿」才能继续；如果草稿其实已经建好，先在平台删掉那份再勾选。
+              </li>
+            </ul>
+          </section>
+
+          <section id="blog">
+            <Heading id="blog">发布到博客</Heading>
+            <p>
+              提供文章接口（<code>/api/v1/articles</code>）的网站，可以从 Obsidian
+              直接发布。默认已经配好
+              GPT101，其他用同一套接口的网站可以在设置里添加。推送即发布，网站用自己的样式显示文章。
+            </p>
+            <h3>第一次使用：填 API Key 与长期图床</h3>
+            <ol className="steps">
+              <li>
+                登录博客，打开 <code>/settings/apikeys/create</code> 创建 API
+                Key，账号需要有文章读写权限。
+              </li>
+              <li>
+                在<b>设置 → 锦章 Jinzhang → 博客</b>里填进 API Key，点「保存」。
+              </li>
+              <li>
+                在<b>设置 → 锦章 Jinzhang → 长期图床</b>
+                里填阿里云 OSS 的地域、Bucket、公开访问地址、目录前缀与
+                AccessKey，点「测试连接」确认能访问，再点「保存图床配置」。图片要能经公开访问地址读取。
+              </li>
+            </ol>
+            <h3>发布与更新</h3>
+            <ol className="steps">
+              <li>
+                点工具栏的 <Icon name="globe" label="地球图标" />
+                ，或用命令「推送到博客」（配了多个博客时先选一个）。
+              </li>
+              <li>
+                第一次发布某篇笔记，在确认弹窗里填文章地址（slug，只能用小写字母、数字、
+                <code>-</code>、<code>_</code>），插件会检查网站上是否已经有这个地址。
+              </li>
+              <li>点「确认推送」：本地图片先传到长期图床，再发布文章；结果弹窗里可以打开文章。</li>
+            </ol>
+            <ul>
+              <li>
+                标题取笔记文件名；正文开头与标题相同的一级标题会去掉。封面用设置的封面或正文第一张图；摘要只在第一次发布时取正文开头。
+              </li>
+              <li>
+                改稿后再推送会更新同一篇文章，地址不变；网站上设置的分类、标签与摘要不受影响。
+              </li>
+              <li>
+                如果有人在网站上改过这篇的标题或正文，确认弹窗会提示，要勾选「覆盖网站上的版本」才会用笔记覆盖。
+              </li>
+              <li>本地图片按内容命名，已经传过的不会重传；网络图片保留原地址。</li>
+              <li>
+                也可以在<b>设置 → 锦章 Jinzhang → 排版</b>里打开「默认推送到
+                GPT101」，让「推送到默认平台」一起发布。
               </li>
             </ul>
           </section>
@@ -488,6 +555,10 @@ export default function ObsidianGuide() {
                     <td>推送到单个平台的草稿箱</td>
                   </tr>
                   <tr>
+                    <td>推送到博客</td>
+                    <td>发布到博客，多个博客时先选择</td>
+                  </tr>
+                  <tr>
                     <td>推送到默认平台</td>
                     <td>依次推送设置里选中的平台</td>
                   </tr>
@@ -512,16 +583,16 @@ export default function ObsidianGuide() {
             <Heading id="data">数据存在哪里</Heading>
             <ul>
               <li>
-                排版和图片处理都在你的电脑上完成；推送时由你的电脑直接连接公众号和知乎，不经过锦章服务器。唯一的例外是「复制到知乎」时的本地图片，会在锦章服务器临时存放
-                1 天。
+                排版和图片处理都在你的电脑上完成；推送与复制时由你的电脑直接连接公众号、知乎、你的博客和你自己的长期图床，不经过锦章服务器。
               </li>
               <li>
-                公众号凭证、知乎登录状态、排版设置、开头结尾模板和草稿记录，都保存在用户目录的
+                公众号凭证、知乎登录状态、博客 API
+                Key、长期图床配置、排版设置、开头结尾模板和草稿记录，都保存在用户目录的
                 <code>~/.config/jinzhang/</code>（Windows 为{' '}
                 <code>C:\Users\用户名\.config\jinzhang</code>
                 ），不放在仓库里，不会随仓库同步。换一台电脑需要重新设置。
               </li>
-              <li>AppSecret 保存后，设置页不再显示它的值。</li>
+              <li>AppSecret、API Key 与 AccessKey Secret 保存后，设置页不再显示它们的值。</li>
             </ul>
           </section>
 

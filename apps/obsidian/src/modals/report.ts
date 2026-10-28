@@ -1,7 +1,7 @@
 import { App, ButtonComponent, Modal } from 'obsidian';
 import { isBlogTarget, WECHAT_ENTRY_URL } from '@jinzhang/core/publish';
 import type { PlatformPlan, PushOutcome } from '../push';
-import { renderErrors, renderWarnings } from './render';
+import { accountText, renderErrors, renderWarnings } from './render';
 /** 体检结果：逐平台列出状态，阻塞项写明原因与下一步。 */
 export class PreflightModal extends Modal {
   constructor(
@@ -26,11 +26,14 @@ export class PreflightModal extends Modal {
               ? `　需要确认：${plan.confirm?.name ?? ''}`
               : '　有阻塞项',
       });
-      if (plan.account) section.createDiv({ text: `账号：${plan.account}` });
+      if (plan.account) section.createDiv({ text: accountText(plan).trim() });
       section.createDiv({ text: plan.action });
       section.createDiv({ cls: 'jinzhang-muted', text: plan.details });
       if (plan.slug?.editable)
-        section.createDiv({ cls: 'jinzhang-muted', text: '首次推送：确认推送时填写文章地址（slug）。' });
+        section.createDiv({
+          cls: 'jinzhang-muted',
+          text: '首次推送：确认推送时填写文章地址（slug）。',
+        });
       renderErrors(section, plan.blockers);
       renderWarnings(section, plan.warnings);
     }

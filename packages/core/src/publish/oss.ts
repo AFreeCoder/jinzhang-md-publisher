@@ -43,7 +43,8 @@ export function normalizeOss(raw: unknown): OssCredentials | null {
     publicBaseUrl: raw.publicBaseUrl.trim().replace(/\/+$/, ''),
     keyPrefix: raw.keyPrefix.trim().replace(/^\/+|\/+$/g, ''),
   };
-  if (typeof raw.endpoint === 'string' && raw.endpoint.trim()) config.endpoint = raw.endpoint.trim();
+  if (typeof raw.endpoint === 'string' && raw.endpoint.trim())
+    config.endpoint = raw.endpoint.trim();
   if (typeof raw.cname === 'boolean') config.cname = raw.cname;
   return config;
 }
@@ -80,7 +81,9 @@ export const publicUrl = (config: OssCredentials, key: string) =>
 /** 上传请求的地址：自定义域名直接用；否则 `https://<bucket>.<endpoint 或 region.aliyuncs.com>`。 */
 export function uploadOrigin(config: OssCredentials) {
   const endpoint = config.endpoint
-    ? new URL(/^https?:\/\//i.test(config.endpoint) ? config.endpoint : `https://${config.endpoint}`)
+    ? new URL(
+        /^https?:\/\//i.test(config.endpoint) ? config.endpoint : `https://${config.endpoint}`,
+      )
     : new URL(`https://${config.region}.aliyuncs.com`);
   const protocol = endpoint.protocol === 'http:' ? 'http:' : 'https:';
   return config.cname
@@ -128,7 +131,9 @@ export async function signV4(
   const region = config.region.replace(/^oss-/, '');
   const scope = `${day}/${region}/oss/aliyun_v4_request`;
   const signed = Object.keys(headers)
-    .filter((name) => name === 'content-type' || name === 'content-md5' || name.startsWith('x-oss-'))
+    .filter(
+      (name) => name === 'content-type' || name === 'content-md5' || name.startsWith('x-oss-'),
+    )
     .sort();
   const canonical = [
     request.method.toUpperCase(),
@@ -242,7 +247,11 @@ export class LongTermImageStore {
   }
   /** 不联网算出对象名与公开地址：同样的字节总是同一个地址。 */
   async locate(image: LongTermImage) {
-    const key = objectKey(this.config, await sha256Hex(image.bytes), imageExtension(image.name, image.mime));
+    const key = objectKey(
+      this.config,
+      await sha256Hex(image.bytes),
+      imageExtension(image.name, image.mime),
+    );
     return { key, url: publicUrl(this.config, key) };
   }
   /** 只接受图片；已存在的对象不重传。返回长期可访问的地址。 */

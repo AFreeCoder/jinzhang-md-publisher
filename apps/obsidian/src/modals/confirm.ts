@@ -1,7 +1,7 @@
 import { App, ButtonComponent, Modal, Setting, TextComponent, ToggleComponent } from 'obsidian';
 import { SLUG_PATTERN, type Target } from '@jinzhang/core/publish';
 import type { Choice, PlatformPlan } from '../push';
-import { baseName, coverUrl, renderErrors, renderWarnings } from './render';
+import { accountText, baseName, coverUrl, renderErrors, renderWarnings } from './render';
 /** 推送前确认（设计第 7 节第 3 步）：确认后才出站。 */
 export class ConfirmModal extends Modal {
   private decided = false;
@@ -34,7 +34,7 @@ export class ConfirmModal extends Modal {
       const section = contentEl.createDiv({ cls: `jinzhang-plan is-${plan.status}` });
       const head = section.createDiv({ cls: 'jinzhang-plan-head' });
       head.createEl('strong', { text: plan.name });
-      head.createSpan({ text: plan.account ? `　账号：${plan.account}` : '' });
+      head.createSpan({ text: accountText(plan) });
       if (plan.status === 'blocked') {
         section.createDiv({ cls: 'jinzhang-skip', text: '因以下问题本次跳过：' });
         renderErrors(section, plan.blockers);
@@ -45,8 +45,9 @@ export class ConfirmModal extends Modal {
       if (plan.slug?.editable) this.slugInput(section, plan, choices, refresh);
       else {
         if (plan.status === 'ready') choices.set(plan.target, { slug: plan.slug?.value });
-        if (plan.slug?.value && plan.slug.prefix)
-          section.createDiv({ cls: 'jinzhang-muted', text: `文章地址：${plan.slug.prefix}${plan.slug.value}` });
+        const address = plan.slug?.value ? `${plan.slug.prefix}${plan.slug.value}` : '';
+        if (address && !plan.action.includes(address))
+          section.createDiv({ cls: 'jinzhang-muted', text: `文章地址：${address}` });
       }
       if (plan.status === 'confirm' && plan.confirm) {
         renderErrors(section, plan.blockers);
@@ -149,7 +150,9 @@ export class ConfirmModal extends Modal {
             } else {
               state = 'taken';
               const published = result.remote.status === 'published' ? '已发布' : '未发布';
-              status.setText(`网站上已有这个地址的文章《${result.remote.title}》（${published}）。`);
+              status.setText(
+                `网站上已有这个地址的文章《${result.remote.title}》（${published}）。`,
+              );
             }
           } catch (error) {
             if (current !== version) return;

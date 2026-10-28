@@ -36,7 +36,8 @@ export function fakeArticleApi(origin = 'https://blog.test', key = 'sk-test') {
         (request) => {
           if (!authorized(request)) return error(401, 'unauthorized');
           const slug = slugOf(request);
-          if (!slug) return { json: { data: { items: [], total: articles.size, page: 1, limit: 1 } } };
+          if (!slug)
+            return { json: { data: { items: [], total: articles.size, page: 1, limit: 1 } } };
           const article = articles.get(slug);
           return article ? ok(200, article) : error(404, 'not_found');
         },

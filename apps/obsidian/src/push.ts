@@ -85,7 +85,11 @@ export interface PushUi {
 const publisherOf = (deps: FlowDeps, platform: Platform) =>
   deps.publisher?.(platform) ?? publishers[platform];
 const statusOf = (blockers: JinzhangError[], confirmable: string) =>
-  !blockers.length ? 'ready' : blockers.every((b) => b.code === confirmable) ? 'confirm' : 'blocked';
+  !blockers.length
+    ? 'ready'
+    : blockers.every((b) => b.code === confirmable)
+      ? 'confirm'
+      : 'blocked';
 async function platformPlan(
   deps: FlowDeps,
   platform: Platform,
@@ -108,7 +112,9 @@ async function platformPlan(
     report = {
       platform,
       ok: false,
-      blockers: [toJinzhangError(error, { code: 'PREFLIGHT_FAILED', stage: 'preflight', platform })],
+      blockers: [
+        toJinzhangError(error, { code: 'PREFLIGHT_FAILED', stage: 'preflight', platform }),
+      ],
       warnings: [],
       summary: {
         platform,

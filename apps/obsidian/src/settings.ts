@@ -336,19 +336,48 @@ export class JinzhangSettingTab extends PluginSettingTab {
       text: '通过文章接口推送 Markdown，推送即发布；本地图片先传到下面的长期图床。API Key 在博客的 /settings/apikeys/create 创建，所属账号要有文章读写权限。',
     });
     const saveBlogs = async (blogs: BlogConfig[]) => {
-      await update({ blogs, targets: config.targets.filter((t) => !t.startsWith('blog:') || blogs.some((b) => blogTarget(b.id) === t)) });
+      await update({
+        blogs,
+        targets: config.targets.filter(
+          (t) => !t.startsWith('blog:') || blogs.some((b) => blogTarget(b.id) === t),
+        ),
+      });
     };
     for (const blog of config.blogs) {
       const has = !!secrets.blogs?.[blog.id]?.apiKey;
       let apiKey = '';
-      new Setting(containerEl).setName(blog.name).setHeading();
-      new Setting(containerEl).setName('名称').addText((text) =>
-        text.setValue(blog.name).onChange((value) =>
-          this.later(`blog-name-${blog.id}`, () =>
-            saveBlogs(config.blogs.map((b) => (b.id === blog.id ? { ...b, name: value.trim() || b.id } : b))),
-          ),
-        ),
-      );
+      new Setting(containerEl)
+        .setName(blog.name)
+        .setHeading()
+        .addExtraButton((button) =>
+          button
+            .setIcon('trash-2')
+            .setTooltip('删除这个博客')
+            .onClick(async () => {
+              await saveBlogs(config.blogs.filter((b) => b.id !== blog.id));
+              const current = (await files.secrets.get('credentials')) ?? {};
+              if (current.blogs?.[blog.id]) {
+                const { [blog.id]: _removed, ...rest } = current.blogs;
+                await files.secrets.set('credentials', { ...current, blogs: rest });
+              }
+              void this.display();
+            }),
+        );
+      new Setting(containerEl)
+        .setName('名称')
+        .addText((text) =>
+          text
+            .setValue(blog.name)
+            .onChange((value) =>
+              this.later(`blog-name-${blog.id}`, () =>
+                saveBlogs(
+                  config.blogs.map((b) =>
+                    b.id === blog.id ? { ...b, name: value.trim() || b.id } : b,
+                  ),
+                ),
+              ),
+            ),
+        );
       new Setting(containerEl)
         .setName('地址')
         .setDesc('站点首页地址，例如 https://gpt101.org')
@@ -358,7 +387,11 @@ export class JinzhangSettingTab extends PluginSettingTab {
             .setValue(blog.url)
             .onChange((value) =>
               this.later(`blog-url-${blog.id}`, () =>
-                saveBlogs(config.blogs.map((b) => (b.id === blog.id ? { ...b, url: normalizeBlogUrl(value) } : b))),
+                saveBlogs(
+                  config.blogs.map((b) =>
+                    b.id === blog.id ? { ...b, url: normalizeBlogUrl(value) } : b,
+                  ),
+                ),
               ),
             ),
         );
@@ -383,20 +416,6 @@ export class JinzhangSettingTab extends PluginSettingTab {
             new Notice(`${blog.name} 的 API Key 已保存。`);
             void this.display();
           }),
-        )
-        .addButton((button) =>
-          button
-            .setButtonText('删除这个博客')
-            .setWarning()
-            .onClick(async () => {
-              await saveBlogs(config.blogs.filter((b) => b.id !== blog.id));
-              const current = (await files.secrets.get('credentials')) ?? {};
-              if (current.blogs?.[blog.id]) {
-                const { [blog.id]: _removed, ...rest } = current.blogs;
-                await files.secrets.set('credentials', { ...current, blogs: rest });
-              }
-              void this.display();
-            }),
         );
     }
     new Setting(containerEl)
@@ -445,13 +464,19 @@ export class JinzhangSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('接入地址是自定义域名')
       .setDesc('接入地址填的是绑定到 Bucket 的域名时打开')
-      .addToggle((toggle) => toggle.setValue(!!draft.cname).onChange((value) => (draft.cname = value)));
+      .addToggle((toggle) =>
+        toggle.setValue(!!draft.cname).onChange((value) => (draft.cname = value)),
+      );
     text('publicBaseUrl', '图片对外的地址前缀（CDN 或 Bucket 域名）', 'https://cdn.example.com');
     text('keyPrefix', '对象名前缀，例如 article-publish-assistant', 'article-publish-assistant');
     text('accessKeyId', '');
     new Setting(containerEl)
       .setName('AccessKey Secret')
-      .setDesc(saved?.accessKeySecret ? '已设置。输入新值后保存即可替换，界面不会显示已保存的值。' : '尚未设置')
+      .setDesc(
+        saved?.accessKeySecret
+          ? '已设置。输入新值后保存即可替换，界面不会显示已保存的值。'
+          : '尚未设置',
+      )
       .addText((input) => {
         input.inputEl.type = 'password';
         input
@@ -488,7 +513,10 @@ export class JinzhangSettingTab extends PluginSettingTab {
         .onClick(async () => {
           const config = current();
           if (!config) {
-            const missing = missingOssFields({ ...draft, accessKeySecret: draft.accessKeySecret || saved?.accessKeySecret });
+            const missing = missingOssFields({
+              ...draft,
+              accessKeySecret: draft.accessKeySecret || saved?.accessKeySecret,
+            });
             new Notice(`还缺：${missing.map((k) => OSS_FIELD_NAMES[k]).join('、')}`);
             return;
           }

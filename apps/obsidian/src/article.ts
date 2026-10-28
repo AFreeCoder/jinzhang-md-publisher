@@ -1,5 +1,10 @@
 import { prepare, render, type Platform, type RenderResult, type Warning } from '@jinzhang/core';
-import { localFixed, prepareBlog, type BlogArticle, type JinzhangConfig } from '@jinzhang/core/publish';
+import {
+  localFixed,
+  prepareBlog,
+  type BlogArticle,
+  type JinzhangConfig,
+} from '@jinzhang/core/publish';
 import { preprocessObsidian, type EmbedTarget } from './obsidian-markdown';
 import { VaultAssetResolver, type VaultAccess } from './resolver';
 /** 一次操作只取一份编辑器文本：预处理、排版、体检、确认、复制与推送都用它（设计第 7 节）。 */

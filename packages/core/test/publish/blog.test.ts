@@ -315,7 +315,10 @@ describe('推送到博客', () => {
       ],
     });
     const ok = setup({ extra: [timeout(true)] });
-    const saved = await blogPublisher.push(await article(), ok.ctx, { slug: 'post', overwrite: false });
+    const saved = await blogPublisher.push(await article(), ok.ctx, {
+      slug: 'post',
+      overwrite: false,
+    });
     expect(saved).toMatchObject({ outcome: 'created', verification: 'confirmed' });
     expect(ok.m.state.drafts[SOURCE].blogs!.gpt101.status).toBe('confirmed');
     const lost = setup({ extra: [timeout(false)] });
@@ -324,7 +327,10 @@ describe('推送到博客', () => {
       overwrite: false,
     });
     expect(result).toMatchObject({ outcome: 'uncertain', error: { code: 'OUTCOME_UNCERTAIN' } });
-    expect(lost.m.state.drafts[SOURCE].blogs!.gpt101).toMatchObject({ slug: 'post', status: 'uncertain' });
+    expect(lost.m.state.drafts[SOURCE].blogs!.gpt101).toMatchObject({
+      slug: 'post',
+      status: 'uncertain',
+    });
     // 网站上其实没有：下次按原地址重新发布，不需要确认。
     const report = await blogPublisher.preflight(await article(), lost.ctx);
     expect(report).toMatchObject({ ok: true, mode: 'recreate', slug: 'post' });
@@ -334,7 +340,10 @@ describe('推送到博客', () => {
     m.secrets.credentials = { oss: OSS, blogs: { gpt101: { apiKey: 'sk-wrong' } } };
     const report = await blogPublisher.preflight(await article(), ctx);
     expect(report.blockers).toMatchObject([
-      { code: 'BLOG_AUTH', action: expect.stringContaining('https://blog.test/settings/apikeys/create') },
+      {
+        code: 'BLOG_AUTH',
+        action: expect.stringContaining('https://blog.test/settings/apikeys/create'),
+      },
     ]);
   });
 });

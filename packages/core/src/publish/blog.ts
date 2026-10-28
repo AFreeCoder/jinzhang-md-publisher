@@ -49,14 +49,21 @@ const escapeAlt = (alt: string) => alt.replace(/[\\[\]]/g, '\\$&');
 const escapeTitle = (title: string) => `"${title.replace(/["\\]/g, '\\$&')}"`;
 /** 地址里的括号与空白会截断 Markdown 链接，编码掉。 */
 const safeUrl = (url: string) =>
-  url.replace(/[()\s<>]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+  url.replace(
+    /[()\s<>]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`,
+  );
 
 function plainText(node: Nodes): string {
   if (node.type === 'code' || node.type === 'html' || node.type === 'image') return '';
   if (node.type === 'text' || node.type === 'inlineCode') return node.value;
   if (!('children' in node)) return '';
   const inner = node.children.map((child) => plainText(child as Nodes)).join('');
-  return node.type === 'root' || node.type === 'link' || node.type === 'emphasis' || node.type === 'strong' || node.type === 'delete'
+  return node.type === 'root' ||
+    node.type === 'link' ||
+    node.type === 'emphasis' ||
+    node.type === 'strong' ||
+    node.type === 'delete'
     ? inner
     : `${inner} `;
 }
@@ -100,7 +107,8 @@ export async function prepareBlog(
       edits.push({
         start: at.start.offset,
         end: at.end.offset,
-        text: (map) => `![${escapeAlt(alt ?? '')}](${map(url)}${hint ? ` ${escapeTitle(hint)}` : ''})`,
+        text: (map) =>
+          `![${escapeAlt(alt ?? '')}](${map(url)}${hint ? ` ${escapeTitle(hint)}` : ''})`,
       });
     } else if (node.type === 'definition' && imageLabels.has(node.identifier)) {
       add(node.url);
@@ -108,7 +116,8 @@ export async function prepareBlog(
       edits.push({
         start: at.start.offset,
         end: at.end.offset,
-        text: (map) => `[${label ?? identifier}]: ${map(url)}${hint ? ` ${escapeTitle(hint)}` : ''}`,
+        text: (map) =>
+          `[${label ?? identifier}]: ${map(url)}${hint ? ` ${escapeTitle(hint)}` : ''}`,
       });
     } else if (node.type === 'html') {
       // 只换 src 的值，引用块与列表里的 HTML 也不会碰到行首的前缀。
@@ -161,7 +170,9 @@ export function blogMarkdown(article: BlogArticle, urls: Map<string, string> = n
   return `${out.replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd()}\n`;
 }
 
-const hasBytes = (image: BlogImage): image is BlogImage & { source: { bytes: Uint8Array; mime: string; assetId?: string } } =>
+const hasBytes = (
+  image: BlogImage,
+): image is BlogImage & { source: { bytes: Uint8Array; mime: string; assetId?: string } } =>
   'bytes' in image.source;
 const localImages = (article: BlogArticle) => {
   const all = [...article.images];
@@ -169,7 +180,9 @@ const localImages = (article: BlogArticle) => {
     all.push(article.cover);
   return all.filter(hasBytes);
 };
-const imageInput = (image: BlogImage & { source: { bytes: Uint8Array; mime: string; assetId?: string } }) => ({
+const imageInput = (
+  image: BlogImage & { source: { bytes: Uint8Array; mime: string; assetId?: string } },
+) => ({
   bytes: image.source.bytes,
   mime: image.source.mime,
   name: image.source.assetId ?? image.original,
@@ -256,7 +269,9 @@ class ArticleApi {
     return this.ctx.blog;
   }
   private error(response: HttpResponse, stage: 'preflight' | 'push'): PublishError {
-    const body = responseJson(response) as { error?: { code?: unknown; message?: unknown } } | undefined;
+    const body = responseJson(response) as
+      | { error?: { code?: unknown; message?: unknown } }
+      | undefined;
     const code = typeof body?.error?.code === 'string' ? body.error.code : '';
     const said = typeof body?.error?.message === 'string' ? body.error.message : '';
     const platform = blogTarget(this.blog.id);
@@ -320,8 +335,7 @@ class ArticleApi {
   }
   private remote(response: HttpResponse): BlogRemote {
     const data = (responseJson(response) as { data?: Record<string, unknown> } | undefined)?.data;
-    const etag =
-      (typeof data?.etag === 'string' && data.etag) || response.headers.etag || '';
+    const etag = (typeof data?.etag === 'string' && data.etag) || response.headers.etag || '';
     if (!data || typeof data.slug !== 'string' || !etag)
       throw fail({
         code: 'BLOG_API_ERROR',
@@ -354,11 +368,18 @@ class ArticleApi {
     const response = await this.request(method, path, payload, etag);
     if (response.status !== 200 && response.status !== 201) throw this.error(response, 'push');
     const saved = (responseJson(response) as { warnings?: unknown } | undefined)?.warnings;
-    return { remote: this.remote(response), cacheWarning: Array.isArray(saved) && saved.length > 0 };
+    return {
+      remote: this.remote(response),
+      cacheWarning: Array.isArray(saved) && saved.length > 0,
+    };
   }
 }
 
-const networkError = (ctx: BlogContext, error: unknown, stage: 'preflight' | 'push'): JinzhangError => ({
+const networkError = (
+  ctx: BlogContext,
+  error: unknown,
+  stage: 'preflight' | 'push',
+): JinzhangError => ({
   code: 'NETWORK_ERROR',
   stage,
   platform: blogTarget(ctx.blog.id),
@@ -392,14 +413,29 @@ export const blogPublisher = {
     const block = (code: string, message: string, action?: string, ref?: string) =>
       blockers.push({ code, stage: 'preflight', platform, message, action, ref });
     const local = localImages(article);
-    const all = [...article.images, ...(article.cover && !article.images.includes(article.cover) ? [article.cover] : [])];
+    const all = [
+      ...article.images,
+      ...(article.cover && !article.images.includes(article.cover) ? [article.cover] : []),
+    ];
     for (const image of all)
       if (image.source.kind === 'missing')
-        block('IMAGE_MISSING', `图片无法解析：${image.source.reason}`, '检查图片路径，或把图片放进 vault 后重试', image.original);
+        block(
+          'IMAGE_MISSING',
+          `图片无法解析：${image.source.reason}`,
+          '检查图片路径，或把图片放进 vault 后重试',
+          image.original,
+        );
     for (const image of local)
       if (!image.source.mime.startsWith('image/'))
-        block('IMAGE_UNSUPPORTED', `不是图片文件（${image.source.mime}）`, '换成 PNG、JPG、GIF、WebP 或 SVG', image.original);
-    const remoteImages = all.filter((image) => image.source.kind === 'remote' || image.source.kind === 'hosted');
+        block(
+          'IMAGE_UNSUPPORTED',
+          `不是图片文件（${image.source.mime}）`,
+          '换成 PNG、JPG、GIF、WebP 或 SVG',
+          image.original,
+        );
+    const remoteImages = all.filter(
+      (image) => image.source.kind === 'remote' || image.source.kind === 'hosted',
+    );
     const store = await storeOf(ctx);
     if (local.length && !store)
       block(
@@ -426,9 +462,16 @@ export const blogPublisher = {
     else if (content.length > CONTENT_LIMIT)
       block('BLOG_TOO_LARGE', '正文超过 50 万字符', '拆成多篇，或删减正文');
     const entry = entryOf(await ctx.host.store.read(), ctx);
-    const base = { target: platform, blog: ctx.blog, warnings, summary, suggestion: suggestSlug(article.title) };
+    const base = {
+      target: platform,
+      blog: ctx.blog,
+      warnings,
+      summary,
+      suggestion: suggestSlug(article.title),
+    };
     const apiKey = await apiKeyOf(ctx);
-    if (!ctx.blog.url) block('CONFIG_MISSING', `还没有填 ${ctx.blog.name} 的地址`, '在设置 → 锦章 → 博客里填写');
+    if (!ctx.blog.url)
+      block('CONFIG_MISSING', `还没有填 ${ctx.blog.name} 的地址`, '在设置 → 锦章 → 博客里填写');
     if (!apiKey)
       block(
         'CONFIG_MISSING',
@@ -436,7 +479,14 @@ export const blogPublisher = {
         `到 ${ctx.blog.url || '博客'}/settings/apikeys/create 创建，填进设置 → 锦章 → 博客`,
       );
     if (!apiKey || !ctx.blog.url)
-      return { ...base, ok: false, blockers, mode: entry ? 'update' : 'create', slug: entry?.slug, remote: null };
+      return {
+        ...base,
+        ok: false,
+        blockers,
+        mode: entry ? 'update' : 'create',
+        slug: entry?.slug,
+        remote: null,
+      };
     const api = new ArticleApi(ctx, apiKey);
     let remote: BlogRemote | null = null;
     try {
@@ -444,9 +494,18 @@ export const blogPublisher = {
       else await api.verify();
     } catch (error) {
       blockers.push(
-        error instanceof PublishError ? { ...error.detail, stage: 'preflight' } : networkError(ctx, error, 'preflight'),
+        error instanceof PublishError
+          ? { ...error.detail, stage: 'preflight' }
+          : networkError(ctx, error, 'preflight'),
       );
-      return { ...base, ok: false, blockers, mode: entry ? 'update' : 'create', slug: entry?.slug, remote: null };
+      return {
+        ...base,
+        ok: false,
+        blockers,
+        mode: entry ? 'update' : 'create',
+        slug: entry?.slug,
+        remote: null,
+      };
     }
     if (!entry) return { ...base, ok: !blockers.length, blockers, mode: 'create', remote: null };
     if (!remote) {
@@ -454,7 +513,14 @@ export const blogPublisher = {
         code: 'BLOG_REMOTE_GONE',
         message: `网站上已找不到这篇（${entry.slug}），本次按原地址重新发布。`,
       });
-      return { ...base, ok: !blockers.length, blockers, mode: 'recreate', slug: entry.slug, remote };
+      return {
+        ...base,
+        ok: !blockers.length,
+        blockers,
+        mode: 'recreate',
+        slug: entry.slug,
+        remote,
+      };
     }
     const now = await contentHash(remote.title, remote.content);
     const changed =
@@ -513,7 +579,14 @@ export const blogPublisher = {
       );
     const apiKey = await apiKeyOf(ctx);
     if (!apiKey)
-      return failed(fail({ code: 'CONFIG_MISSING', stage: 'push', platform, message: `还没有填 ${ctx.blog.name} 的 API Key` }));
+      return failed(
+        fail({
+          code: 'CONFIG_MISSING',
+          stage: 'push',
+          platform,
+          message: `还没有填 ${ctx.blog.name} 的 API Key`,
+        }),
+      );
     const api = new ArticleApi(ctx, apiKey);
     const store = await storeOf(ctx);
     const local = localImages(article);
@@ -536,10 +609,10 @@ export const blogPublisher = {
     }
     const content = blogMarkdown(article, urls);
     const cover = article.cover
-      ? urls.get(article.cover.original) ??
+      ? (urls.get(article.cover.original) ??
         (article.cover.source.kind === 'remote' || article.cover.source.kind === 'hosted'
           ? article.cover.source.url
-          : '')
+          : ''))
       : '';
     const hash = await contentHash(article.title, content);
     const state = await ctx.host.store.read();
@@ -599,7 +672,11 @@ export const blogPublisher = {
           status: 'published',
         };
     const warnings: Warning[] = [];
-    const done = async (saved: BlogRemote, cacheWarning: boolean, verified: boolean): Promise<PushResult> => {
+    const done = async (
+      saved: BlogRemote,
+      cacheWarning: boolean,
+      verified: boolean,
+    ): Promise<PushResult> => {
       await record({ hash, status: 'confirmed' });
       if (cacheWarning)
         warnings.push({

@@ -56,4 +56,7 @@ export function coverUrl(cover: Pick<ImageRef, 'source'> | null, allocated: stri
   allocated.push(url);
   return url;
 }
+/** 平台显示账号，博客显示站点。 */
+export const accountText = (plan: { target: string; account?: string }) =>
+  plan.account ? `　${plan.target.startsWith('blog:') ? '站点' : '账号'}：${plan.account}` : '';
 export const baseName = (path: string) => displayRef(path).split(/[\\/]/).pop() || path;
