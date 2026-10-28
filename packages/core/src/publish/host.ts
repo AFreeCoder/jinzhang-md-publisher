@@ -2,7 +2,7 @@ import type { ImageCodec, Platform } from '../types';
 import type { SecretStore, StateStore } from '../local';
 export interface HttpRequest {
   url: string;
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
+  method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH';
   headers?: Record<string, string>;
   body?: string | Uint8Array;
   /** 到时由宿主以 `TransportError('timeout')` 失败；请求可能仍在平台侧完成。 */

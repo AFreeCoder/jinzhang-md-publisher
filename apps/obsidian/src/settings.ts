@@ -1,14 +1,25 @@
 import { App, Notice, PluginSettingTab, Setting, TextAreaComponent } from 'obsidian';
 import { themes, type Platform } from '@jinzhang/core';
 import {
+  blogTarget,
+  checkOss,
+  missingOssFields,
+  normalizeBlogUrl,
+  normalizeOss,
+  OSS_FIELD_NAMES,
+  PLATFORMS,
   probeEgressIp,
   readCredentials,
   WHITELIST_PATH,
   zhihuStatus,
+  type BlogConfig,
+  type Credentials,
   type JinzhangConfig,
+  type OssCredentials,
+  type Target,
 } from '@jinzhang/core/publish';
 import type JinzhangPlugin from './main';
-import { PLATFORM_NAMES } from './push';
+import { targetName } from './push';
 const FAKEID_GUIDE = 'https://github.com/doocs/md/blob/main/docs/mp-card.md';
 /**
  * 设置页（设计第 10 节）：除界面偏好外读写的都是配置目录里的文件，每次打开重新读取，
@@ -29,10 +40,12 @@ export class JinzhangSettingTab extends PluginSettingTab {
     const files = this.plugin.files;
     let config: JinzhangConfig;
     let credentials: Awaited<ReturnType<typeof readCredentials>>;
+    let secrets: Credentials;
     const footers = { wechat: '', zhihu: '' };
     try {
       config = await files.config.read();
       credentials = await readCredentials(this.plugin.host);
+      secrets = (await files.secrets.get('credentials')) ?? {};
       for (const platform of ['wechat', 'zhihu'] as const)
         footers[platform] = await files.templates.read(platform, 'footer');
     } catch (error) {
@@ -51,15 +64,8 @@ export class JinzhangSettingTab extends PluginSettingTab {
       config = await files.config.update(patch);
       this.plugin.refreshViews();
     };
-    const timers = new Map<string, number>();
     /** 文本框停止输入后再写配置，避免每个按键都写一次文件。 */
-    const later = (key: string, run: () => Promise<void>) => {
-      window.clearTimeout(timers.get(key));
-      timers.set(
-        key,
-        window.setTimeout(() => void run(), 600),
-      );
-    };
+    const later = (key: string, run: () => Promise<void>) => this.later(key, run);
     containerEl.createEl('h3', { text: '公众号' });
     let appId = credentials?.appId ?? '';
     let appSecret = '';
@@ -155,6 +161,8 @@ export class JinzhangSettingTab extends PluginSettingTab {
       cls: 'setting-item-description',
       text: '退出会删除配置目录里的知乎登录态，命令行也在用这一份。',
     });
+    this.blogSection(containerEl, config, secrets, update);
+    this.ossSection(containerEl, secrets);
     containerEl.createEl('h3', { text: '排版' });
     new Setting(containerEl)
       .setName('默认主题')
@@ -165,14 +173,15 @@ export class JinzhangSettingTab extends PluginSettingTab {
           .setValue(config.theme)
           .onChange(async (value) => update({ theme: value as JinzhangConfig['theme'] }));
       });
-    for (const platform of ['wechat', 'zhihu'] as const)
+    const allTargets: Target[] = [...PLATFORMS, ...config.blogs.map((b) => blogTarget(b.id))];
+    for (const target of allTargets)
       new Setting(containerEl)
-        .setName(`默认推送到${PLATFORM_NAMES[platform]}`)
+        .setName(`默认推送到${targetName(config, target)}`)
         .setDesc('「推送到默认平台」一次推送所有选中的平台')
         .addToggle((toggle) =>
-          toggle.setValue(config.targets.includes(platform)).onChange(async (value) => {
-            const targets = (['wechat', 'zhihu'] as Platform[]).filter((p) =>
-              p === platform ? value : config.targets.includes(p),
+          toggle.setValue(config.targets.includes(target)).onChange(async (value) => {
+            const targets = allTargets.filter((t) =>
+              t === target ? value : config.targets.includes(t),
             );
             await update({ targets });
           }),
@@ -312,5 +321,220 @@ export class JinzhangSettingTab extends PluginSettingTab {
         text.setValue(files.dir);
         text.inputEl.readOnly = true;
       });
+  }
+  /** 博客：名称、地址与 API Key；推送即发布。API Key 只写不回显。 */
+  private blogSection(
+    containerEl: HTMLElement,
+    config: JinzhangConfig,
+    secrets: Credentials,
+    update: (patch: Parameters<JinzhangPlugin['files']['config']['update']>[0]) => Promise<void>,
+  ) {
+    const files = this.plugin.files;
+    containerEl.createEl('h3', { text: '博客' });
+    containerEl.createDiv({
+      cls: 'setting-item-description',
+      text: '通过文章接口推送 Markdown，推送即发布；本地图片先传到下面的长期图床。API Key 在博客的 /settings/apikeys/create 创建，所属账号要有文章读写权限。',
+    });
+    const saveBlogs = async (blogs: BlogConfig[]) => {
+      await update({
+        blogs,
+        targets: config.targets.filter(
+          (t) => !t.startsWith('blog:') || blogs.some((b) => blogTarget(b.id) === t),
+        ),
+      });
+    };
+    for (const blog of config.blogs) {
+      const has = !!secrets.blogs?.[blog.id]?.apiKey;
+      let apiKey = '';
+      new Setting(containerEl)
+        .setName(blog.name)
+        .setHeading()
+        .addExtraButton((button) =>
+          button
+            .setIcon('trash-2')
+            .setTooltip('删除这个博客')
+            .onClick(async () => {
+              await saveBlogs(config.blogs.filter((b) => b.id !== blog.id));
+              const current = (await files.secrets.get('credentials')) ?? {};
+              if (current.blogs?.[blog.id]) {
+                const { [blog.id]: _removed, ...rest } = current.blogs;
+                await files.secrets.set('credentials', { ...current, blogs: rest });
+              }
+              void this.display();
+            }),
+        );
+      new Setting(containerEl)
+        .setName('名称')
+        .addText((text) =>
+          text
+            .setValue(blog.name)
+            .onChange((value) =>
+              this.later(`blog-name-${blog.id}`, () =>
+                saveBlogs(
+                  config.blogs.map((b) =>
+                    b.id === blog.id ? { ...b, name: value.trim() || b.id } : b,
+                  ),
+                ),
+              ),
+            ),
+        );
+      new Setting(containerEl)
+        .setName('地址')
+        .setDesc('站点首页地址，例如 https://gpt101.org')
+        .addText((text) =>
+          text
+            .setPlaceholder('https://example.com')
+            .setValue(blog.url)
+            .onChange((value) =>
+              this.later(`blog-url-${blog.id}`, () =>
+                saveBlogs(
+                  config.blogs.map((b) =>
+                    b.id === blog.id ? { ...b, url: normalizeBlogUrl(value) } : b,
+                  ),
+                ),
+              ),
+            ),
+        );
+      new Setting(containerEl)
+        .setName('API Key')
+        .setDesc(has ? '已设置。输入新值后保存即可替换，界面不会显示已保存的值。' : '尚未设置')
+        .addText((text) => {
+          text.inputEl.type = 'password';
+          text.setPlaceholder(has ? '已设置' : 'sk-…').onChange((value) => (apiKey = value.trim()));
+        })
+        .addButton((button) =>
+          button.setButtonText('保存').onClick(async () => {
+            if (!apiKey) {
+              new Notice('请先输入 API Key。');
+              return;
+            }
+            const current = (await files.secrets.get('credentials')) ?? {};
+            await files.secrets.set('credentials', {
+              ...current,
+              blogs: { ...current.blogs, [blog.id]: { apiKey } },
+            });
+            new Notice(`${blog.name} 的 API Key 已保存。`);
+            void this.display();
+          }),
+        );
+    }
+    new Setting(containerEl)
+      .setDesc('其他使用同一套文章接口（/api/v1/articles）的网站也可以加进来。')
+      .addButton((button) =>
+        button.setButtonText('添加博客').onClick(async () => {
+          let n = config.blogs.length + 1;
+          while (config.blogs.some((b) => b.id === `blog${n}`)) n++;
+          await saveBlogs([...config.blogs, { id: `blog${n}`, name: `博客 ${n}`, url: '' }]);
+          void this.display();
+        }),
+      );
+  }
+
+  /** 长期图床（阿里云 OSS）：博客与复制到知乎共用；字段与 my-toolbox 的 oss.config 相同，保存在 credentials.json。 */
+  private ossSection(containerEl: HTMLElement, secrets: Credentials) {
+    const files = this.plugin.files;
+    const saved = secrets.oss;
+    const draft: Partial<OssCredentials> = { ...saved, accessKeySecret: '' };
+    containerEl.createEl('h3', { text: '长期图床' });
+    containerEl.createDiv({
+      cls: 'setting-item-description',
+      text: '博客文章与复制到知乎时，本地图片原样上传到这个阿里云 OSS，按内容命名、已有的不重传；对象要能经公开访问地址读取。只在网页版用的锦章中转与这里无关。',
+    });
+    const text = (key: keyof OssCredentials & string, desc: string, placeholder = '') =>
+      new Setting(containerEl)
+        .setName(OSS_FIELD_NAMES[key as keyof typeof OSS_FIELD_NAMES] ?? key)
+        .setDesc(desc)
+        .addText((input) =>
+          input
+            .setPlaceholder(placeholder)
+            .setValue(typeof draft[key] === 'string' ? (draft[key] as string) : '')
+            .onChange((value) => ((draft as Record<string, unknown>)[key] = value.trim())),
+        );
+    text('region', '如 oss-cn-shanghai', 'oss-cn-shanghai');
+    text('bucket', '', 'my-bucket');
+    new Setting(containerEl)
+      .setName('接入地址')
+      .setDesc('可选，缺省按地域拼成 https://<Bucket>.<地域>.aliyuncs.com')
+      .addText((input) =>
+        input
+          .setPlaceholder('https://oss-cn-shanghai.aliyuncs.com')
+          .setValue(draft.endpoint ?? '')
+          .onChange((value) => (draft.endpoint = value.trim() || undefined)),
+      );
+    new Setting(containerEl)
+      .setName('接入地址是自定义域名')
+      .setDesc('接入地址填的是绑定到 Bucket 的域名时打开')
+      .addToggle((toggle) =>
+        toggle.setValue(!!draft.cname).onChange((value) => (draft.cname = value)),
+      );
+    text('publicBaseUrl', '图片对外的地址前缀（CDN 或 Bucket 域名）', 'https://cdn.example.com');
+    text('keyPrefix', '对象名前缀，例如 article-publish-assistant', 'article-publish-assistant');
+    text('accessKeyId', '');
+    new Setting(containerEl)
+      .setName('AccessKey Secret')
+      .setDesc(
+        saved?.accessKeySecret
+          ? '已设置。输入新值后保存即可替换，界面不会显示已保存的值。'
+          : '尚未设置',
+      )
+      .addText((input) => {
+        input.inputEl.type = 'password';
+        input
+          .setPlaceholder(saved?.accessKeySecret ? '已设置' : '')
+          .onChange((value) => (draft.accessKeySecret = value.trim()));
+      });
+    const status = new Setting(containerEl).setDesc(
+      saved ? '已配置。' : '尚未配置：含本地图片的博客推送与知乎复制会提示先来这里填写。',
+    );
+    const current = () =>
+      normalizeOss({ ...draft, accessKeySecret: draft.accessKeySecret || saved?.accessKeySecret });
+    status.addButton((button) =>
+      button.setButtonText('测试连接').onClick(async () => {
+        const config = current();
+        if (!config) {
+          new Notice('先把必填项填齐。');
+          return;
+        }
+        button.setDisabled(true);
+        try {
+          await checkOss(this.plugin.host, config);
+          status.setDesc('连接正常：凭证与 Bucket 可以访问。');
+        } catch (error) {
+          status.setDesc(`连接失败：${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+          button.setDisabled(false);
+        }
+      }),
+    );
+    status.addButton((button) =>
+      button
+        .setButtonText('保存图床配置')
+        .setCta()
+        .onClick(async () => {
+          const config = current();
+          if (!config) {
+            const missing = missingOssFields({
+              ...draft,
+              accessKeySecret: draft.accessKeySecret || saved?.accessKeySecret,
+            });
+            new Notice(`还缺：${missing.map((k) => OSS_FIELD_NAMES[k]).join('、')}`);
+            return;
+          }
+          const latest = (await files.secrets.get('credentials')) ?? {};
+          await files.secrets.set('credentials', { ...latest, oss: config });
+          new Notice('长期图床配置已保存。');
+          void this.display();
+        }),
+    );
+  }
+
+  private timers = new Map<string, number>();
+  /** 文本框停止输入后再写配置。 */
+  private later(key: string, run: () => Promise<void>) {
+    window.clearTimeout(this.timers.get(key));
+    this.timers.set(
+      key,
+      window.setTimeout(() => void run(), 600),
+    );
   }
 }

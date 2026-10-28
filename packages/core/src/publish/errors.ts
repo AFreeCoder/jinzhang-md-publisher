@@ -1,10 +1,11 @@
-import type { Platform } from '../types';
+import type { Target } from '../local';
 export type ErrorStage = 'config' | 'render' | 'image' | 'preflight' | 'push' | 'auth';
 /** architecture.md 第 10 节的错误模型；message 与 action 给人看，不含凭证。 */
 export interface JinzhangError {
   code: string;
   stage: ErrorStage;
-  platform?: Platform;
+  /** 公众号、知乎，或 `blog:<id>`。 */
+  platform?: Target;
   message: string;
   action?: string;
   ref?: string;

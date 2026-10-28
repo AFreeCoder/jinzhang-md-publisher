@@ -1,5 +1,10 @@
 import { prepare, render, type Platform, type RenderResult, type Warning } from '@jinzhang/core';
-import { localFixed, type JinzhangConfig } from '@jinzhang/core/publish';
+import {
+  localFixed,
+  prepareBlog,
+  type BlogArticle,
+  type JinzhangConfig,
+} from '@jinzhang/core/publish';
 import { preprocessObsidian, type EmbedTarget } from './obsidian-markdown';
 import { VaultAssetResolver, type VaultAccess } from './resolver';
 /** 一次操作只取一份编辑器文本：预处理、排版、体检、确认、复制与推送都用它（设计第 7 节）。 */
@@ -70,4 +75,20 @@ export async function buildArticle(
     templates,
     variables,
   };
+}
+/**
+ * 博客要的是 Markdown：同一份快照按同样规则预处理（属性区、注释、双链、callout、嵌入图），
+ * 图片仍是原始引用，推送时再换成长期图床地址。不加公众号、知乎的开头结尾。
+ */
+export async function buildBlogArticle(snapshot: Snapshot, env: BuildEnv): Promise<BlogArticle> {
+  const { markdown, warnings } = preprocessObsidian(snapshot.content, {
+    contentStart: snapshot.contentStart,
+    resolveEmbed: (linkpath) => env.resolveEmbed(linkpath, snapshot.path),
+  });
+  const article = await prepareBlog(
+    { markdown, title: snapshot.title, cover: env.cover },
+    new VaultAssetResolver(env.vault, env.basePath, snapshot.path),
+  );
+  article.warnings.push(...warnings);
+  return article;
 }

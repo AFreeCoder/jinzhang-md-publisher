@@ -2,12 +2,56 @@ import type { Platform, ThemeId, WechatCard } from './types';
 export type { WechatCard } from './types';
 /** 本地形态（命令行与插件）共用的配置、状态与凭证结构，读写实现见 `./node`。 */
 export const PLATFORMS: Platform[] = ['wechat', 'zhihu'];
+/** 通过文章接口推送的博客（与 gpt101.org 的 `/api/v1/articles` 同一套协议）。 */
+export interface BlogConfig {
+  /** 默认推送目标与凭证都按它对应，写成 `blog:<id>`。 */
+  id: string;
+  name: string;
+  /** 站点地址，不带结尾斜杠，例如 `https://gpt101.org`。 */
+  url: string;
+}
+export type BlogTarget = `blog:${string}`;
+/** 推送目标：两个排版平台，或某个博客。 */
+export type Target = Platform | BlogTarget;
+export const blogTarget = (id: string): BlogTarget => `blog:${id}`;
+export const isBlogTarget = (target: string): target is BlogTarget => target.startsWith('blog:');
+export const DEFAULT_BLOGS: BlogConfig[] = [
+  { id: 'gpt101', name: 'GPT101', url: 'https://gpt101.org' },
+];
+const BLOG_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
+/** 博客地址只认 http(s)，去掉结尾斜杠；无效返回空串。 */
+export function normalizeBlogUrl(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  try {
+    const url = new URL(value.trim());
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) return '';
+    return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
+}
+function normalizeBlogs(raw: unknown): BlogConfig[] {
+  if (!Array.isArray(raw)) return DEFAULT_BLOGS.map((blog) => ({ ...blog }));
+  const blogs: BlogConfig[] = [];
+  for (const item of raw) {
+    if (!isRecord(item) || typeof item.id !== 'string' || !BLOG_ID.test(item.id)) continue;
+    if (blogs.some((blog) => blog.id === item.id)) continue;
+    blogs.push({
+      id: item.id,
+      name: typeof item.name === 'string' && item.name.trim() ? item.name.trim() : item.id,
+      url: normalizeBlogUrl(item.url),
+    });
+  }
+  return blogs;
+}
 export interface JinzhangConfig {
   version: 1;
   /** 作者名：开头样式一的「作者」一行，也是模板变量 `{{author}}` 的取值。 */
   author: string;
   theme: ThemeId;
-  targets: Platform[];
+  /** 「推送到默认平台」的目标；博客写成 `blog:<id>`。 */
+  targets: Target[];
+  blogs: BlogConfig[];
   /** 公众号的 `header`、`footer` 是开头样式一、结尾样式一的开关；知乎只有结尾，`header` 不生效。 */
   fixed: Record<Platform, { header: boolean; footer: boolean }>;
   wechat: {
@@ -31,6 +75,7 @@ export function defaultConfig(): JinzhangConfig {
     author: '',
     theme: 'sspai',
     targets: ['wechat', 'zhihu'],
+    blogs: DEFAULT_BLOGS.map((blog) => ({ ...blog })),
     fixed: { wechat: { header: true, footer: true }, zhihu: { header: true, footer: true } },
     wechat: {
       card: {
@@ -59,14 +104,19 @@ export function normalizeConfig(raw: unknown): JinzhangConfig {
   const wechat = isRecord(source.wechat) ? source.wechat : {};
   const card = isRecord(wechat.card) ? wechat.card : {};
   const start = isRecord(wechat.start) ? wechat.start : {};
-  const targets = Array.isArray(source.targets)
-    ? PLATFORMS.filter((p) => source.targets.includes(p))
+  const blogs = normalizeBlogs(source.blogs);
+  const targets: Target[] = Array.isArray(source.targets)
+    ? [
+        ...PLATFORMS.filter((p) => source.targets.includes(p)),
+        ...blogs.map((blog) => blogTarget(blog.id)).filter((t) => source.targets.includes(t)),
+      ]
     : base.targets;
   return {
     version: 1,
     author: pick(source.author, base.author),
     theme: ['sspai', 'native', 'mac'].includes(source.theme) ? source.theme : base.theme,
     targets,
+    blogs,
     fixed: Object.fromEntries(
       PLATFORMS.map((p) => {
         const item = isRecord(fixed[p]) ? fixed[p] : {};
@@ -168,6 +218,17 @@ export interface ZhihuDraftEntry {
   title?: string;
   updatedAt: string;
 }
+/** 博客文章的映射：按 slug 更新，记下上次推送的内容摘要，用来发现网站上的改动。 */
+export interface BlogPostEntry {
+  /** 博客地址；地址变了视为另一个站点，映射不沿用。 */
+  account: string;
+  slug: string;
+  /** 上次推送的标题与正文的 SHA-256：网站上这两项变了才要用户确认覆盖（分类、标签等改动不算）。 */
+  hash?: string;
+  status: DraftStatus;
+  title?: string;
+  updatedAt: string;
+}
 export interface ZhihuImageEntry {
   md5: string;
   src: string;
@@ -181,7 +242,10 @@ export interface JinzhangState {
   version: 1;
   /** 键是源文件规范化后的绝对路径。 */
   articles: Record<string, { cover?: string }>;
-  drafts: Record<string, { wechat?: WechatDraftEntry; zhihu?: ZhihuDraftEntry }>;
+  drafts: Record<
+    string,
+    { wechat?: WechatDraftEntry; zhihu?: ZhihuDraftEntry; blogs?: Record<string, BlogPostEntry> }
+  >;
   /** 键是规范化后图片内容的 SHA-256，平台下再按账号区分。 */
   images: Record<
     string,
@@ -200,8 +264,27 @@ export function normalizeState(raw: unknown): JinzhangState {
     delete state.wechatEgressIp;
   return state;
 }
+/** 长期图床（阿里云 OSS），字段与 my-toolbox 的 oss.config 相同；对象可公开读，经 `publicBaseUrl` 访问。 */
+export interface OssCredentials {
+  /** 如 `oss-cn-shanghai`。 */
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  accessKeySecret: string;
+  /** 公开访问地址（CDN 或 Bucket 域名），不带结尾斜杠。 */
+  publicBaseUrl: string;
+  /** 对象名前缀，不带首尾斜杠。 */
+  keyPrefix: string;
+  /** 上传用的接入地址，如 `https://oss-cn-shanghai.aliyuncs.com`；缺省按地域拼。 */
+  endpoint?: string;
+  /** `endpoint` 是绑定到 Bucket 的自定义域名。 */
+  cname?: boolean;
+}
 export interface Credentials {
   wechat?: { appId: string; appSecret: string };
+  oss?: OssCredentials;
+  /** 键是博客 id。 */
+  blogs?: Record<string, { apiKey: string }>;
 }
 export interface WechatToken {
   appId: string;

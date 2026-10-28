@@ -1,50 +1,51 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { ImageRef, RenderResult } from '@jinzhang/core';
 import {
   defaultConfig,
   type HttpRequest,
   type HttpResponse,
+  type OssCredentials,
   type PublishContext,
   type PublishHost,
 } from '@jinzhang/core/publish';
 import { placeForCopy } from '../src/copy';
-const json = (status: number, body: unknown): HttpResponse => ({
+const OSS: OssCredentials = {
+  region: 'oss-cn-shanghai',
+  bucket: 'demo',
+  accessKeyId: 'AK',
+  accessKeySecret: 'SK',
+  publicBaseUrl: 'https://img.example.com',
+  keyPrefix: 'posts',
+};
+const reply = (status: number, body = ''): HttpResponse => ({
   status,
-  headers: { 'content-type': 'application/json' },
-  body: new TextEncoder().encode(JSON.stringify(body)),
+  headers: {},
+  body: new TextEncoder().encode(body),
 });
-/** 模拟锦章中转的签名、OSS 直传与完成校验；没有知乎登录态。 */
-function transitHost(respond?: (request: HttpRequest) => HttpResponse | undefined) {
+/** 模拟长期图床：HEAD 查对象、PUT 上传；没有知乎登录态。 */
+function ossHost(
+  options: { oss?: OssCredentials | null; existing?: string[]; put?: HttpResponse } = {},
+) {
   const requests: HttpRequest[] = [];
+  const stored = new Set(options.existing ?? []);
   const host = {
-    secrets: { get: async () => null },
-    now: () => new Date('2026-10-20T00:00:00Z'),
-    codec: {
-      normalize: async (bytes: Uint8Array) => ({
-        bytes,
-        mime: 'image/png',
-        width: 1,
-        height: 1,
-        animated: false,
-      }),
+    secrets: {
+      get: async (name: string) =>
+        name === 'credentials' && options.oss !== null ? { oss: options.oss ?? OSS } : null,
     },
+    now: () => new Date('2026-10-28T00:00:00Z'),
     http: {
       request: async (request: HttpRequest) => {
         requests.push(request);
-        const custom = respond?.(request);
-        if (custom) return custom;
-        if (request.url.endsWith('/api/transit/sign'))
-          return json(200, {
-            url: 'https://bucket.oss.test',
-            fields: { key: `transit/${requests.length}.png`, policy: 'p' },
-            ticket: `t${requests.length}`,
-          });
-        if (request.url === 'https://bucket.oss.test') return json(201, {});
-        if (request.url.endsWith('/api/transit/complete'))
-          return json(200, {
-            url: `https://read.oss.test/${JSON.parse(String(request.body)).ticket}`,
-          });
-        throw new Error(`意外的请求 ${request.url}`);
+        const key = decodeURIComponent(new URL(request.url).pathname.slice(1));
+        if (request.method === 'HEAD') return reply(stored.has(key) ? 200 : 404);
+        if (request.method === 'PUT') {
+          if (options.put) return options.put;
+          stored.add(key);
+          return reply(200);
+        }
+        throw new Error(`意外的请求 ${request.method} ${request.url}`);
       },
     },
   } as unknown as PublishHost;
@@ -62,12 +63,21 @@ const remote: ImageRef = {
   source: { kind: 'remote', url: 'https://example.com/a.png' },
   inFixedContent: false,
 };
-const local = (id: string, byte: number): ImageRef => ({
+const local = (id: string, byte: number, ext = 'png'): ImageRef => ({
   id,
-  original: `assets/${id}.png`,
-  source: { kind: 'blob', bytes: new Uint8Array([byte, 1, 2]), mime: 'image/png' },
+  original: `jz-local://vault/assets/${id}.${ext}`,
+  source: {
+    kind: 'blob',
+    bytes: new Uint8Array([byte, 1, 2]),
+    mime: ext === 'gif' ? 'image/gif' : 'image/png',
+    assetId: `assets/${id}.${ext}`,
+  },
   inFixedContent: false,
 });
+const sha = (byte: number) =>
+  createHash('sha256')
+    .update(new Uint8Array([byte, 1, 2]))
+    .digest('hex');
 const zhihu = (images: ImageRef[]) =>
   ({
     platform: 'zhihu',
@@ -75,53 +85,56 @@ const zhihu = (images: ImageRef[]) =>
     images,
   }) as unknown as RenderResult;
 describe('复制到知乎（不需要登录）', () => {
-  it('没有图片时不发任何请求', async () => {
-    const { context, requests } = transitHost();
-    const placed = await placeForCopy(zhihu([]), context, () => {});
-    expect(placed.html).toBe('');
-    expect(requests).toEqual([]);
-  });
-  it('网络图片保留原地址并提示核对，不上传', async () => {
-    const { context, requests } = transitHost();
+  it('没有图片时不发任何请求，也不要求配置图床', async () => {
+    const { context, requests } = ossHost({ oss: null });
     const placed = await placeForCopy(zhihu([remote]), context, () => {});
     expect(placed.html).toContain('src="https://example.com/a.png"');
     expect(placed.warnings.map((w) => w.code)).toEqual(['IMAGE_REMOTE_KEPT']);
     expect(requests).toEqual([]);
   });
-  it('本地图片经锦章中转上传，换成中转地址；接口请求带本站 Origin', async () => {
-    const { context, requests } = transitHost();
+  it('本地图片原样传到长期图床，按内容哈希命名，换成公开地址；不再经过锦章中转', async () => {
+    const { context, requests } = ossHost();
     const progress: string[] = [];
-    const placed = await placeForCopy(zhihu([local('b', 10), remote]), context, (m) =>
+    const placed = await placeForCopy(zhihu([local('b', 10, 'gif'), remote]), context, (m) =>
       progress.push(m),
     );
-    expect(requests.map((r) => r.url)).toEqual([
-      'https://jinzhang.ink/api/transit/sign',
-      'https://bucket.oss.test',
-      'https://jinzhang.ink/api/transit/complete',
+    const key = `posts/${sha(10)}.gif`;
+    expect(requests.map((r) => `${r.method} ${r.url}`)).toEqual([
+      `HEAD https://demo.oss-cn-shanghai.aliyuncs.com/${key}`,
+      `PUT https://demo.oss-cn-shanghai.aliyuncs.com/${key}`,
     ]);
-    expect(requests[0].headers?.Origin).toBe('https://jinzhang.ink');
-    expect(JSON.parse(String(requests[0].body))).toEqual({ mime: 'image/png', size: 3 });
-    const form = new TextDecoder().decode(requests[1].body as Uint8Array);
-    expect(form.indexOf('name="policy"')).toBeLessThan(form.indexOf('name="file"'));
-    expect(placed.html).toContain('src="https://read.oss.test/t1"');
+    expect(requests.some((r) => r.url.includes('jinzhang.ink'))).toBe(false);
+    expect(requests[1].headers).toMatchObject({
+      'Content-Type': 'image/gif',
+      'x-oss-content-sha256': 'UNSIGNED-PAYLOAD',
+    });
+    expect(requests[1].headers?.Authorization).toMatch(
+      /^OSS4-HMAC-SHA256 Credential=AK\/20261028\/cn-shanghai\/oss\/aliyun_v4_request,Signature=[0-9a-f]{64}$/,
+    );
+    expect(requests[1].body).toEqual(new Uint8Array([10, 1, 2]));
+    expect(placed.html).toContain(`src="https://img.example.com/${key}"`);
     expect(placed.html).toContain('src="https://example.com/a.png"');
     expect(progress).toEqual(['上传图片 1/1']);
   });
-  it('同一张图在有效期内复用中转地址', async () => {
-    const { context, requests } = transitHost();
-    await placeForCopy(zhihu([local('c', 20)]), context, () => {});
-    const again = await placeForCopy(zhihu([local('d', 20)]), context, () => {});
-    expect(requests.filter((r) => r.url.endsWith('/sign'))).toHaveLength(1);
-    expect(again.html).toContain('src="https://read.oss.test/');
+  it('图床里已有的对象不重传', async () => {
+    const { context, requests } = ossHost({ existing: [`posts/${sha(20)}.png`] });
+    const placed = await placeForCopy(zhihu([local('c', 20)]), context, () => {});
+    expect(requests.map((r) => r.method)).toEqual(['HEAD']);
+    expect(placed.html).toContain(`src="https://img.example.com/posts/${sha(20)}.png"`);
   });
-  it('中转失败时报出哪张图和原因', async () => {
-    const { context } = transitHost((request) =>
-      request.url.endsWith('/sign')
-        ? json(429, { code: 'RATE_LIMITED', message: '请求太频繁，请稍后再试' })
-        : undefined,
+  it('有本地图片但没配图床时提示先去设置', async () => {
+    const { context, requests } = ossHost({ oss: null });
+    await expect(placeForCopy(zhihu([local('d', 30)]), context, () => {})).rejects.toThrow(
+      '复制到知乎要先配置长期图床',
     );
-    await expect(placeForCopy(zhihu([local('e', 30)]), context, () => {})).rejects.toThrow(
-      '图片「assets/e.png」上传到锦章中转失败：请求太频繁，请稍后再试',
+    expect(requests).toEqual([]);
+  });
+  it('上传失败时报出哪张图和原因', async () => {
+    const { context } = ossHost({
+      put: reply(403, '<Error><Code>SignatureDoesNotMatch</Code></Error>'),
+    });
+    await expect(placeForCopy(zhihu([local('e', 40)]), context, () => {})).rejects.toThrow(
+      '图片上传到长期图床失败：AccessKey Secret 不对，签名校验失败（assets/e.png）',
     );
   });
 });

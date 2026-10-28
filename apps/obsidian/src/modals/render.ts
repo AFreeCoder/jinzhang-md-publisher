@@ -48,7 +48,7 @@ export function summaryText(summary: PlatformSummary) {
 export const draftText = (summary: PlatformSummary) =>
   summary.draft === 'update' ? `更新已有草稿（${summary.draftRef}）` : '创建新草稿';
 /** 封面缩略图地址：本地字节转 blob 地址，远程图片用原地址；由调用方负责回收。 */
-export function coverUrl(cover: ImageRef | null, allocated: string[]) {
+export function coverUrl(cover: Pick<ImageRef, 'source'> | null, allocated: string[]) {
   const source = cover?.source;
   if (!source || source.kind === 'missing') return undefined;
   if (!('bytes' in source)) return source.url;
@@ -56,4 +56,7 @@ export function coverUrl(cover: ImageRef | null, allocated: string[]) {
   allocated.push(url);
   return url;
 }
+/** 平台显示账号，博客显示站点。 */
+export const accountText = (plan: { target: string; account?: string }) =>
+  plan.account ? `　${plan.target.startsWith('blog:') ? '站点' : '账号'}：${plan.account}` : '';
 export const baseName = (path: string) => displayRef(path).split(/[\\/]/).pop() || path;
