@@ -22,6 +22,7 @@ import {
 } from '@jinzhang/core/publish';
 import { buildArticle, type BuildEnv, type Snapshot } from './article';
 import { COPIED, copyTarget, placeForCopy, writeClipboard, type Placed } from './copy';
+import { saveCoverImage } from './cover-image';
 import { createHost, ObsidianVault } from './host';
 import { ConfirmModal } from './modals/confirm';
 import { CoverModal } from './modals/cover';
@@ -273,15 +274,17 @@ export default class JinzhangPlugin extends Plugin {
         explicit: env.cover,
         effective: built.result.cover,
         save: async (image) => {
+          // 选中或粘贴后才存进附件目录，按规范命名。
+          const saved = image ? await saveCoverImage(this.app, image, file.path) : undefined;
           await this.files.state.update((state) => {
             const article = (state.articles[source] ??= {});
-            if (image) article.cover = normalizeSourcePath(joinDisk(this.basePath, image.path));
+            if (saved) article.cover = normalizeSourcePath(joinDisk(this.basePath, saved.path));
             else {
               delete article.cover;
               if (!Object.keys(article).length) delete state.articles[source];
             }
           });
-          new Notice(image ? `已设置封面：${image.name}` : '已清除单独设置的封面，改用正文首图');
+          new Notice(saved ? `已设置封面：${saved.path}` : '已清除单独设置的封面，改用正文首图');
           this.refreshViews();
         },
       }).open();
