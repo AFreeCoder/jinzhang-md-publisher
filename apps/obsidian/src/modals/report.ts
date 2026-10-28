@@ -1,7 +1,7 @@
 import { App, ButtonComponent, Modal } from 'obsidian';
-import { WECHAT_ENTRY_URL } from '@jinzhang/core/publish';
-import { PLATFORM_NAMES, type PlatformPlan, type PushOutcome } from '../push';
-import { draftText, renderErrors, renderWarnings, summaryText } from './render';
+import { isBlogTarget, WECHAT_ENTRY_URL } from '@jinzhang/core/publish';
+import type { PlatformPlan, PushOutcome } from '../push';
+import { renderErrors, renderWarnings } from './render';
 /** 体检结果：逐平台列出状态，阻塞项写明原因与下一步。 */
 export class PreflightModal extends Modal {
   constructor(
@@ -16,22 +16,23 @@ export class PreflightModal extends Modal {
     contentEl.createEl('h2', { text: '推送前体检' });
     for (const plan of this.plans) {
       const section = contentEl.createDiv({ cls: `jinzhang-plan is-${plan.status}` });
-      const { summary } = plan.report;
       const head = section.createDiv({ cls: 'jinzhang-plan-head' });
-      head.createEl('strong', { text: PLATFORM_NAMES[plan.platform] });
+      head.createEl('strong', { text: plan.name });
       head.createSpan({
         text:
           plan.status === 'ready'
             ? '　可以推送'
             : plan.status === 'confirm'
-              ? '　需要先核对草稿箱'
+              ? `　需要确认：${plan.confirm?.name ?? ''}`
               : '　有阻塞项',
       });
-      if (summary.account) section.createDiv({ text: `账号：${summary.account}` });
-      section.createDiv({ text: draftText(summary) });
-      section.createDiv({ cls: 'jinzhang-muted', text: summaryText(summary) });
-      renderErrors(section, plan.report.blockers);
-      renderWarnings(section, plan.report.warnings);
+      if (plan.account) section.createDiv({ text: `账号：${plan.account}` });
+      section.createDiv({ text: plan.action });
+      section.createDiv({ cls: 'jinzhang-muted', text: plan.details });
+      if (plan.slug?.editable)
+        section.createDiv({ cls: 'jinzhang-muted', text: '首次推送：确认推送时填写文章地址（slug）。' });
+      renderErrors(section, plan.blockers);
+      renderWarnings(section, plan.warnings);
     }
     contentEl.createDiv({
       cls: 'jinzhang-muted',
@@ -60,8 +61,9 @@ export class ResultModal extends Modal {
     for (const outcome of this.outcomes) {
       const section = contentEl.createDiv({ cls: `jinzhang-plan is-${outcome.status}` });
       const head = section.createDiv({ cls: 'jinzhang-plan-head' });
-      head.createEl('strong', { text: PLATFORM_NAMES[outcome.platform] });
+      head.createEl('strong', { text: outcome.name });
       const result = outcome.result;
+      const blog = isBlogTarget(outcome.target);
       if (outcome.status === 'skipped') {
         head.createSpan({ text: '　未执行' });
         renderErrors(section, outcome.blockers ?? []);
@@ -69,20 +71,30 @@ export class ResultModal extends Modal {
       }
       if (!result) continue;
       if (result.outcome === 'created' || result.outcome === 'updated') {
-        head.createSpan({ text: result.outcome === 'created' ? '　已创建草稿' : '　已更新草稿' });
-        const where =
-          outcome.platform === 'wechat'
+        const created = result.outcome === 'created';
+        head.createSpan({
+          text: blog
+            ? created
+              ? '　已发布'
+              : '　已更新'
+            : created
+              ? '　已创建草稿'
+              : '　已更新草稿',
+        });
+        const where = blog
+          ? result.entryUrl
+          : outcome.target === 'wechat'
             ? '在公众号后台「内容管理 → 草稿箱」里找到这篇'
             : '也可以在知乎创作中心的草稿箱里找到';
         section.createDiv({ cls: 'jinzhang-muted', text: where });
         if (result.verification === 'unverified')
           section.createDiv({ text: '草稿已写入，但回读校验没有通过，请到草稿箱核对。' });
         new ButtonComponent(section.createDiv())
-          .setButtonText('打开草稿')
+          .setButtonText(blog ? '打开文章' : '打开草稿')
           .onClick(() => window.open(result.entryUrl || WECHAT_ENTRY_URL));
         renderWarnings(section, result.warnings);
       } else if (result.outcome === 'uncertain') {
-        head.createSpan({ text: '　结果不确定，先去草稿箱确认' });
+        head.createSpan({ text: blog ? '　结果不确定' : '　结果不确定，先去草稿箱确认' });
         renderErrors(section, [result.error]);
       } else if (result.outcome === 'failed') {
         head.createSpan({ text: '　失败' });

@@ -99,6 +99,8 @@ export class PreviewView extends ItemView {
       '推送到当前平台',
       () => this.file && this.plugin.pushNote(this.file, [this.plugin.prefs.platform]),
     );
+    // 博客不在预览里切换：网站用自己的样式渲染 Markdown，锦章只负责提交。
+    action('globe', '推送到博客', () => this.file && void this.plugin.pushBlog(this.file));
     this.frame = root.createEl('iframe', {
       cls: 'jinzhang-frame',
       attr: { sandbox: 'allow-same-origin', title: '锦章预览' },

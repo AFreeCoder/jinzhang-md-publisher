@@ -1,9 +1,11 @@
 import {
   FileSystemAdapter,
+  FuzzySuggestModal,
   getFrontMatterInfo,
   MarkdownView,
   Notice,
   Plugin,
+  type App,
   type TFile,
 } from 'obsidian';
 import { mkdir } from 'node:fs/promises';
@@ -15,12 +17,15 @@ import {
   type LocalFiles,
 } from '@jinzhang/core/node';
 import {
+  blogTarget,
   readZhihuSession,
   saveZhihuLogin,
+  type BlogConfig,
   type JinzhangConfig,
+  type Target,
   type ZhihuUser,
 } from '@jinzhang/core/publish';
-import { buildArticle, type BuildEnv, type Snapshot } from './article';
+import { buildArticle, buildBlogArticle, type BuildEnv, type Snapshot } from './article';
 import { COPIED, copyTarget, placeForCopy, writeClipboard, type Placed } from './copy';
 import { saveCoverImage } from './cover-image';
 import { createHost, ObsidianVault } from './host';
@@ -39,6 +44,26 @@ interface Prefs {
   platform: Platform;
 }
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+/** 配置了多个博客时选一个推送。 */
+class BlogChoiceModal extends FuzzySuggestModal<BlogConfig> {
+  constructor(
+    app: App,
+    private blogs: BlogConfig[],
+    private choose: (blog: BlogConfig) => void,
+  ) {
+    super(app);
+    this.setPlaceholder('推送到哪个博客');
+  }
+  getItems() {
+    return this.blogs;
+  }
+  getItemText(blog: BlogConfig) {
+    return `${blog.name}　${blog.url}`;
+  }
+  onChooseItem(blog: BlogConfig) {
+    this.choose(blog);
+  }
+}
 export default class JinzhangPlugin extends Plugin {
   prefs: Prefs = { platform: 'wechat' };
   files!: LocalFiles;
@@ -77,6 +102,11 @@ export default class JinzhangPlugin extends Plugin {
       id: 'push-zhihu',
       name: '推送到知乎',
       checkCallback: note((file) => this.pushNote(file, ['zhihu'])),
+    });
+    this.addCommand({
+      id: 'push-blog',
+      name: '推送到博客',
+      checkCallback: note((file) => void this.pushBlog(file)),
     });
     this.addCommand({
       id: 'preflight',
@@ -170,10 +200,23 @@ export default class JinzhangPlugin extends Plugin {
       config,
       host: this.host,
       build: (platform: Platform) => this.build(snapshot, platform, env),
+      buildBlog: () => buildBlogArticle(snapshot, env),
     };
   }
+  /** 推送到博客：只配了一个就直接推，多个时先选。 */
+  async pushBlog(file: TFile) {
+    const { blogs } = await this.files.config.read();
+    if (!blogs.length) {
+      new Notice('还没有配置博客，请在设置 → 锦章 → 博客里添加。');
+      return;
+    }
+    if (blogs.length === 1) return this.pushNote(file, [blogTarget(blogs[0].id)]);
+    new BlogChoiceModal(this.app, blogs, (blog) =>
+      void this.pushNote(file, [blogTarget(blog.id)]),
+    ).open();
+  }
   /** 推送（设计第 7 节）：体检、确认、逐平台投递、结果；同一篇笔记推送期间不允许重复触发。 */
-  async pushNote(file: TFile, platforms?: Platform[]) {
+  async pushNote(file: TFile, platforms?: Target[]) {
     if (this.pushing.has(file.path)) {
       new Notice('这篇笔记正在推送，请等本次结束。');
       return;
@@ -212,7 +255,7 @@ export default class JinzhangPlugin extends Plugin {
       this.refreshViews();
     }
   }
-  async preflightNote(file: TFile, platforms?: Platform[]) {
+  async preflightNote(file: TFile, platforms?: Target[]) {
     const notice = new Notice('锦章：体检中…', 0);
     try {
       const flow = await this.prepareFlow(file);

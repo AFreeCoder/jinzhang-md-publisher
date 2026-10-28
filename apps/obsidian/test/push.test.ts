@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Platform } from '@jinzhang/core';
 import {
+  blogPublisher,
   defaultConfig,
+  type BlogArticle,
+  type BlogPreflight,
+  type Target,
   type JinzhangError,
   type PreflightReport,
   type Publisher,
@@ -63,16 +67,20 @@ const created = (draftRef: string): PushResult => ({
 });
 function flow(
   publishers: Record<Platform, Publisher>,
-  choose: (plans: PlatformPlan[]) => Set<Platform> | null,
+  choose: (plans: PlatformPlan[]) => Set<Target> | null,
 ) {
   const finished: unknown[] = [];
-  const confirm = vi.fn(async (plans: PlatformPlan[]) => choose(plans));
+  const confirm = vi.fn(async (plans: PlatformPlan[]) => {
+    const chosen = choose(plans);
+    return chosen && new Map([...chosen].map((target) => [target as Target, {}]));
+  });
   const ui: PushUi = { confirm, progress: vi.fn(), finish: (outcomes) => finished.push(outcomes) };
   const deps = {
     snapshot,
     host: {} as PublishHost,
     config: defaultConfig(),
     build: async (platform: Platform) => built(platform),
+    buildBlog: async () => ({}) as BlogArticle,
     publisher: (platform: Platform) => publishers[platform],
   };
   return { deps, ui, confirm, finished };
@@ -84,7 +92,7 @@ describe('推送流程', () => {
     const { deps, ui, confirm } = flow(
       { wechat: wechat.publisher, zhihu: zhihu.publisher },
       (plans) => {
-        expect(plans.map((p) => [p.platform, p.status])).toEqual([
+        expect(plans.map((p) => [p.target, p.status])).toEqual([
           ['wechat', 'blocked'],
           ['zhihu', 'ready'],
         ]);
@@ -95,8 +103,13 @@ describe('推送流程', () => {
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(wechat.publisher.push).not.toHaveBeenCalled();
     expect(outcomes).toEqual([
-      { platform: 'wechat', status: 'skipped', blockers: [blocker('COVER_MISSING')] },
-      { platform: 'zhihu', status: 'completed', result: created('Z') },
+      {
+        target: 'wechat',
+        name: '公众号',
+        status: 'skipped',
+        blockers: [blocker('COVER_MISSING')],
+      },
+      { target: 'zhihu', name: '知乎', status: 'completed', result: created('Z') },
     ]);
   });
   it('确认前不出站；取消则什么都不推', async () => {
@@ -121,16 +134,16 @@ describe('推送流程', () => {
       return new Set(['zhihu']);
     });
     const first = await runPush(skipped.deps, ['wechat', 'zhihu'], skipped.ui);
-    expect(first?.[0]).toMatchObject({ platform: 'wechat', status: 'skipped' });
+    expect(first?.[0]).toMatchObject({ target: 'wechat', status: 'skipped' });
     expect(wechat.publisher.push).not.toHaveBeenCalled();
     const confirmed = flow(
       { wechat: wechat.publisher, zhihu: zhihu.publisher },
       () => new Set(['wechat']),
     );
     const second = await runPush(confirmed.deps, ['wechat', 'zhihu'], confirmed.ui);
-    expect(second?.[0]).toMatchObject({ platform: 'wechat', status: 'completed' });
+    expect(second?.[0]).toMatchObject({ target: 'wechat', status: 'completed' });
     expect(wechat.contexts.at(-1)?.confirmUncertain).toBe(true);
-    expect(second?.[1]).toMatchObject({ platform: 'zhihu', status: 'skipped' });
+    expect(second?.[1]).toMatchObject({ target: 'zhihu', status: 'skipped' });
   });
   it('一个平台失败或抛错不影响后面的平台；两平台共用一次操作的图片缓存与同一份快照', async () => {
     const wechat = fakePublisher('wechat', [], async () => {
@@ -162,10 +175,90 @@ describe('推送流程', () => {
     const { deps, ui } = flow(
       { wechat: wechat.publisher } as Record<Platform, Publisher>,
       (plans) => {
-        expect(plans[0].report.warnings[0].code).toBe('OBSIDIAN_EMBED');
+        expect(plans[0].warnings[0].code).toBe('OBSIDIAN_EMBED');
         return new Set();
       },
     );
     await runPush(deps, ['wechat'], ui);
+  });
+  it('博客与平台一起推送：首次推送带上确认框填的 slug，网站上改过要勾选覆盖才执行', async () => {
+    const zhihu = fakePublisher('zhihu', [], async () => created('Z'));
+    const report = (over: Partial<BlogPreflight>): BlogPreflight => ({
+      target: 'blog:gpt101',
+      blog: defaultConfig().blogs[0],
+      ok: true,
+      blockers: [],
+      warnings: [],
+      mode: 'create',
+      suggestion: 'hello',
+      remote: null,
+      summary: { title: '标题', localImages: 1, remoteImages: 0, cover: null, chars: 10 },
+      ...over,
+    });
+    const pushes: unknown[] = [];
+    const fakeBlog = (over: Partial<BlogPreflight>) =>
+      ({
+        ...blogPublisher,
+        preflight: vi.fn(async () => report(over)),
+        check: vi.fn(),
+        push: vi.fn(async (_article: BlogArticle, _ctx: unknown, choice: unknown) => {
+          pushes.push(choice);
+          return created('hello');
+        }),
+      }) as unknown as typeof blogPublisher;
+    const config = { ...defaultConfig(), targets: ['zhihu', 'blog:gpt101'] as Target[] };
+    const deps = (blog: typeof blogPublisher) => ({
+      snapshot,
+      host: { secrets: { get: async () => null } } as unknown as PublishHost,
+      config,
+      build: async (platform: Platform) => built(platform),
+      buildBlog: vi.fn(async () => ({ title: '标题', cover: null }) as unknown as BlogArticle),
+      publisher: () => zhihu.publisher,
+      blog,
+    });
+    const ui = (pick: (plans: PlatformPlan[]) => Map<Target, { slug?: string; overwrite?: boolean }> | null) => ({
+      confirm: vi.fn(async (plans: PlatformPlan[]) => pick(plans)),
+      progress: vi.fn(),
+      finish: vi.fn(),
+    });
+    const first = await runPush(
+      deps(fakeBlog({})),
+      config.targets,
+      ui((plans) => {
+        expect(plans.map((p) => [p.target, p.name, p.status])).toEqual([
+          ['zhihu', '知乎', 'ready'],
+          ['blog:gpt101', 'GPT101', 'ready'],
+        ]);
+        expect(plans[1].slug).toMatchObject({ editable: true, value: 'hello' });
+        return new Map([
+          ['zhihu', {}],
+          ['blog:gpt101', { slug: 'my-post' }],
+        ]);
+      }),
+    );
+    expect(first?.map((o) => o.status)).toEqual(['completed', 'completed']);
+    expect(pushes.at(-1)).toEqual({ slug: 'my-post', overwrite: false });
+    const changed = {
+      mode: 'update' as const,
+      slug: 'my-post',
+      blockers: [blocker('BLOG_REMOTE_CHANGED')],
+    };
+    const skipped = await runPush(
+      deps(fakeBlog(changed)),
+      ['blog:gpt101'],
+      ui((plans) => {
+        expect(plans[0]).toMatchObject({ status: 'confirm', confirm: { name: '覆盖网站上的版本' } });
+        expect(plans[0].slug?.editable).toBe(false);
+        return new Map();
+      }),
+    );
+    expect(skipped?.[0].status).toBe('skipped');
+    const overwrite = await runPush(
+      deps(fakeBlog(changed)),
+      ['blog:gpt101'],
+      ui(() => new Map([['blog:gpt101', { slug: 'my-post' }]])),
+    );
+    expect(overwrite?.[0].status).toBe('completed');
+    expect(pushes.at(-1)).toEqual({ slug: 'my-post', overwrite: true });
   });
 });

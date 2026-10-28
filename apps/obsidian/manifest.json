@@ -3,7 +3,7 @@
   "name": "锦章 Jinzhang",
   "version": "0.1.8",
   "minAppVersion": "1.5.7",
-  "description": "Markdown 发布助手：预览公众号与知乎成品，一键推送到两个平台的草稿箱。",
+  "description": "Markdown 发布助手：预览公众号与知乎成品，一键推送到草稿箱，也能发布到自己的博客。",
   "author": "AFreeCoder",
   "authorUrl": "https://github.com/AFreeCoder/jinzhang-md-publisher",
   "isDesktopOnly": true
