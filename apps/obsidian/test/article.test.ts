@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getFrontMatterInfo } from 'obsidian';
 import { defaultConfig } from '@jinzhang/core/publish';
-import { buildArticle, type BuildEnv, type Snapshot } from '../src/article';
+import { buildArticle, buildNewspicArticle, type BuildEnv, type Snapshot } from '../src/article';
 import type { VaultAccess, VaultFile } from '../src/resolver';
 const file = (path: string): VaultFile => ({ path, extension: 'png', stat: { mtime: 1, size: 1 } });
 const vault: VaultAccess = {
@@ -83,5 +83,31 @@ describe('从编辑器快照排版', () => {
     expect(missing.result.warnings).toContainEqual(
       expect.objectContaining({ code: 'IMAGE_MISSING', ref: '缺.png' }),
     );
+  });
+});
+
+describe('贴图', () => {
+  it('嵌入图读成知识库里的文件，封面按同一个文件去重排第一，不加开头结尾与名片', async () => {
+    const built = await buildNewspicArticle(
+      snapshot(
+        '---\ntags: [a]\n---\n# 测试文章\n\n![[a.png]]\n\n配一段文字\n\n![](/Users/me/封面.png)\n\n:::card\n',
+      ),
+      env({
+        cover: 'assets/a.png',
+        // Obsidian 按完整路径也能找到文件（工作台的知识库索引同样如此）。
+        vault: {
+          ...vault,
+          getFirstLinkpathDest: (link) =>
+            link === 'a.png' || link === 'assets/a.png' ? file('assets/a.png') : null,
+        },
+      }),
+    );
+    expect(built.images.map((image) => image.original)).toEqual([
+      'assets/a.png',
+      '/Users/me/封面.png',
+    ]);
+    expect(built.images[0].source).toMatchObject({ kind: 'blob', assetId: 'assets/a.png' });
+    expect(built.text).toBe('配一段文字\n\n:::card');
+    expect(built.text).not.toContain('感谢阅读');
   });
 });

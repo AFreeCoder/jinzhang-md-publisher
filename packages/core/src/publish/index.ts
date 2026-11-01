@@ -1,4 +1,4 @@
-import { readCredentials, wechatPublisher, estimateChars } from './wechat';
+import { readCredentials, wechatPublisher, estimateChars, wechatDraftEntry } from './wechat';
 import { readZhihuSession, zhihuPublisher } from './zhihu';
 import { draftMapping, maskAppId, summaryBase } from './common';
 import type { PlatformSummary, PublishContext, RenderedArticle } from './types';
@@ -22,7 +22,16 @@ export {
   WechatApiError,
   WECHAT_ENTRY_URL,
   WHITELIST_PATH,
+  type WechatArticleType,
 } from './wechat';
+export {
+  newspicPublisher,
+  prepareNewspic,
+  NEWSPIC_MAX_IMAGES,
+  NEWSPIC_TEXT_HINT,
+  type NewspicArticle,
+  type NewspicImage,
+} from './newspic';
 export {
   blogPublisher,
   blogMarkdown,
@@ -69,7 +78,7 @@ export async function describe(
     const summary = summaryBase(
       article,
       ctx,
-      draftMapping(state, ctx, 'wechat', credentials?.appId).entry,
+      wechatDraftEntry(state, ctx, credentials?.appId, 'news').entry,
     );
     summary.account =
       ctx.config.wechat.card.nickname || (credentials && maskAppId(credentials.appId));
