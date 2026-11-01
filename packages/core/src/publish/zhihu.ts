@@ -87,7 +87,8 @@ const isHtml = (response: HttpResponse) =>
 /** 401、验证页归为需重新登录；403 与 10001、10003 归为风控，绝不因此新建草稿。 */
 export function classifyZhihu(response: HttpResponse): JinzhangError | undefined {
   const ok = response.status >= 200 && response.status < 300;
-  if (ok && !isHtml(response)) return undefined;
+  // 写草稿（PATCH）成功时知乎回 200、空正文，Content-Type 却是 text/html：成功且没有正文不是验证页。
+  if (ok && (!isHtml(response) || response.body.length === 0)) return undefined;
   const body = responseJson(response) as
     | { error?: { code?: unknown; message?: unknown; need_login?: unknown } }
     | undefined;

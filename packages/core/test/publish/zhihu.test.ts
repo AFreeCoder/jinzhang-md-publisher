@@ -185,6 +185,17 @@ describe('知乎推送', () => {
     for (let i = 1; i < times.length; i++)
       expect(times[i] - times[i - 1]).toBeGreaterThanOrEqual(300);
   });
+  it('写草稿成功时知乎回 200、空正文、text/html：照常完成，不当成验证页', async () => {
+    const empty = {
+      bytes: new Uint8Array(),
+      headers: { 'content-type': 'text/html; charset=UTF-8' },
+    };
+    const m = setup({ patch: [empty, empty] });
+    const result = await zhihuPublisher.push(await article(BODY, 'zhihu'), context(m.host));
+    expect(result).toMatchObject({ outcome: 'created', draftRef: '<DRAFT_ID>' });
+    expect(m.calls('PATCH', PATCH_URL)).toHaveLength(2);
+    expect(m.state.drafts[SOURCE].zhihu).toMatchObject({ status: 'confirmed' });
+  });
   it('重推：沿用映射 PATCH 原草稿，图片走缓存，提示已发布文章只改草稿', async () => {
     const m = setup();
     const a = await article(BODY, 'zhihu');
