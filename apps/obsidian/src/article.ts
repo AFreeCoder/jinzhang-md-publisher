@@ -2,8 +2,10 @@ import { prepare, render, type Platform, type RenderResult, type Warning } from 
 import {
   localFixed,
   prepareBlog,
+  prepareNewspic,
   type BlogArticle,
   type JinzhangConfig,
+  type NewspicArticle,
 } from '@jinzhang/core/publish';
 import { preprocessObsidian, type EmbedTarget } from './obsidian-markdown';
 import { VaultAssetResolver, type VaultAccess } from './resolver';
@@ -90,5 +92,25 @@ export async function buildBlogArticle(snapshot: Snapshot, env: BuildEnv): Promi
     new VaultAssetResolver(env.vault, env.basePath, snapshot.path),
   );
   article.warnings.push(...warnings);
+  return article;
+}
+
+/**
+ * 公众号贴图：同一份快照按同样规则预处理，取出图片（单独设置的封面排第一）和纯文字。
+ * 不加开头结尾与名片：贴图没有正文排版。
+ */
+export async function buildNewspicArticle(
+  snapshot: Snapshot,
+  env: BuildEnv,
+): Promise<NewspicArticle> {
+  const { markdown, warnings } = preprocessObsidian(snapshot.content, {
+    contentStart: snapshot.contentStart,
+    resolveEmbed: (linkpath) => env.resolveEmbed(linkpath, snapshot.path),
+  });
+  const article = await prepareNewspic(
+    { markdown, title: snapshot.title, cover: env.cover },
+    new VaultAssetResolver(env.vault, env.basePath, snapshot.path),
+  );
+  article.warnings.unshift(...warnings);
   return article;
 }

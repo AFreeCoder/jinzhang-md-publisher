@@ -206,6 +206,8 @@ export function localFixed(
 export type DraftStatus = 'confirmed' | 'unverified' | 'uncertain';
 export interface WechatDraftEntry {
   account: string;
+  /** 草稿类型：图文（news，旧记录没有这一项）或贴图（newspic）。 */
+  articleType?: 'news' | 'newspic';
   mediaId?: string;
   status: DraftStatus;
   title?: string;

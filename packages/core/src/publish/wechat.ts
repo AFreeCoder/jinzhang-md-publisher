@@ -1,6 +1,6 @@
 import { placeImages } from '../place';
 import { HTML_LIMIT, type ImageRef, type ImageStore, type Warning } from '../types';
-import type { WechatToken } from '../local';
+import type { JinzhangState, WechatDraftEntry, WechatToken } from '../local';
 import { fail, PublishError, toJinzhangError, type JinzhangError } from './errors';
 import { responseJson, TransportError, type HttpRequest, type PublishHost } from './host';
 import { isPlatformHosted, type PreparedImage } from './images';
@@ -17,6 +17,7 @@ import {
   WECHAT_URL_BUDGET,
 } from './common';
 import type {
+  PlatformSummary,
   PreflightReport,
   Publisher,
   PublishContext,
@@ -276,13 +277,13 @@ export class WechatApi {
   draftCount() {
     return this.call('/cgi-bin/draft/count', { method: 'GET' });
   }
-  async addDraft(article: WechatArticle) {
+  async addDraft(article: WechatDraft) {
     const body = await this.json('/cgi-bin/draft/add', { articles: [article] });
     if (typeof body.media_id !== 'string' || !body.media_id)
       throw new WechatApiError(undefined, '响应缺少 media_id');
     return body.media_id;
   }
-  async updateDraft(mediaId: string, article: WechatArticle) {
+  async updateDraft(mediaId: string, article: WechatDraft) {
     await this.json('/cgi-bin/draft/update', { media_id: mediaId, index: 0, articles: article });
   }
   async getDraft(mediaId: string) {
@@ -297,6 +298,35 @@ export interface WechatArticle {
   title: string;
   content: string;
   thumb_media_id: string;
+}
+/** 贴图（接口里叫图片消息）：正文只能是纯文本，图片是永久素材，第一张就是封面。 */
+export interface WechatNewspic {
+  article_type: 'newspic';
+  title: string;
+  content: string;
+  image_info: { image_list: { image_media_id: string }[] };
+}
+export type WechatDraft = WechatArticle | WechatNewspic;
+export type WechatArticleType = WechatDraft['article_type'];
+const TYPE_NAMES: Record<WechatArticleType, string> = { news: '图文', newspic: '贴图' };
+/**
+ * 当前账号下同一类型的草稿映射（旧记录没有类型，按图文算）。图文与贴图不互相更新：
+ * 接口没有说明能否改草稿类型，类型变了就新建一份，旧草稿留在草稿箱。
+ */
+export function wechatDraftEntry(
+  state: JinzhangState,
+  ctx: PublishContext,
+  account: string | undefined,
+  type: WechatArticleType,
+) {
+  const { entry, otherAccount } = draftMapping(state, ctx, 'wechat', account);
+  const existing = entry?.articleType ?? 'news';
+  if (!entry || existing === type) return { entry, otherAccount, warning: undefined };
+  const warning: Warning = {
+    code: 'DRAFT_TYPE_CHANGED',
+    message: `这篇之前推过${TYPE_NAMES[existing]}草稿，这次会新建一份${TYPE_NAMES[type]}草稿，旧草稿留在草稿箱里。`,
+  };
+  return { entry: undefined as WechatDraftEntry | undefined, otherAccount, warning };
 }
 /** 正文图走 uploadimg，按内容哈希跨次复用；已在 mmbiz 上的地址直通。 */
 class WechatImageStore implements ImageStore {
@@ -356,7 +386,7 @@ const tooLong = (chars: number, estimated: boolean): JinzhangError => ({
   message: `正文${estimated ? '换成图片地址后预计' : ''}为 ${chars} 字符，公众号接口要求少于 ${HTML_LIMIT}`,
   action: '换用简洁主题、拆分文章或减少图片',
 });
-const missingConfig: JinzhangError = {
+export const missingConfig: JinzhangError = {
   code: 'CONFIG_MISSING',
   stage: 'config',
   platform: 'wechat',
@@ -390,6 +420,44 @@ function verify(saved: Record<string, unknown> | undefined, article: WechatArtic
     warnings.push({ code: 'CARD_FILTERED', message: '公众号保存草稿时过滤了名片。' });
   return { verified: warnings.length === 0, warnings };
 }
+/**
+ * 体检里与正文无关的部分（图文与贴图共用）：探测出口 IP、取 token 并读草稿总数，
+ * 顺带验证凭证、IP 白名单与草稿接口权限；出口 IP 写进摘要。
+ */
+export async function checkWechatAccount(
+  ctx: PublishContext,
+  state: JinzhangState,
+  credentials: { appId: string; appSecret: string } | undefined,
+  summary: PlatformSummary,
+) {
+  const blockers: JinzhangError[] = [];
+  const warnings: Warning[] = [];
+  let egressIp: string | undefined;
+  try {
+    egressIp = summary.egressIp = await probeEgressIp(ctx.host);
+    if (state.wechatEgressIp && state.wechatEgressIp !== egressIp)
+      warnings.push({
+        code: 'EGRESS_IP_CHANGED',
+        message: `出口 IP 已从 ${state.wechatEgressIp} 变为 ${egressIp}，白名单可能需要更新。`,
+        ref: egressIp,
+      });
+  } catch {
+    warnings.push({ code: 'EGRESS_IP_UNKNOWN', message: '未能探测出口 IP。' });
+  }
+  if (!credentials) blockers.push(missingConfig);
+  else {
+    try {
+      await new WechatApi(ctx.host, credentials).draftCount();
+      if (egressIp && state.wechatEgressIp !== egressIp)
+        await ctx.host.store.update((s) => {
+          s.wechatEgressIp = egressIp;
+        });
+    } catch (error) {
+      blockers.push({ ...wechatError(error, { egressIp }), stage: 'preflight' });
+    }
+  }
+  return { blockers, warnings };
+}
 export const wechatPublisher: Publisher = {
   platform: 'wechat',
   async preflight(article, ctx) {
@@ -397,36 +465,19 @@ export const wechatPublisher: Publisher = {
     const warnings: Warning[] = [...article.warnings];
     const credentials = await readCredentials(ctx.host);
     const state = await ctx.host.store.read();
-    const { entry, otherAccount } = draftMapping(state, ctx, 'wechat', credentials?.appId);
+    const {
+      entry,
+      otherAccount,
+      warning: typeChanged,
+    } = wechatDraftEntry(state, ctx, credentials?.appId, 'news');
     if (otherAccount) warnings.push(otherAccountWarning('wechat'));
+    if (typeChanged) warnings.push(typeChanged);
     const summary = summaryBase(article, ctx, entry);
     summary.account =
       ctx.config.wechat.card.nickname || (credentials && maskAppId(credentials.appId));
-    let egressIp: string | undefined;
-    try {
-      egressIp = summary.egressIp = await probeEgressIp(ctx.host);
-      if (state.wechatEgressIp && state.wechatEgressIp !== egressIp)
-        warnings.push({
-          code: 'EGRESS_IP_CHANGED',
-          message: `出口 IP 已从 ${state.wechatEgressIp} 变为 ${egressIp}，白名单可能需要更新。`,
-          ref: egressIp,
-        });
-    } catch {
-      warnings.push({ code: 'EGRESS_IP_UNKNOWN', message: '未能探测出口 IP。' });
-    }
-    if (!credentials) blockers.push(missingConfig);
-    else {
-      // 取 token 并读草稿总数：顺带验证 IP 白名单与草稿接口权限。
-      try {
-        await new WechatApi(ctx.host, credentials).draftCount();
-        if (egressIp && state.wechatEgressIp !== egressIp)
-          await ctx.host.store.update((s) => {
-            s.wechatEgressIp = egressIp;
-          });
-      } catch (error) {
-        blockers.push({ ...wechatError(error, { egressIp }), stage: 'preflight' });
-      }
-    }
+    const account = await checkWechatAccount(ctx, state, credentials, summary);
+    blockers.push(...account.blockers);
+    warnings.push(...account.warnings);
     if (entry?.status === 'uncertain' && !ctx.confirmUncertain)
       blockers.push(uncertainBlocker('wechat'));
     if (!article.cover) blockers.push(missingCover);
@@ -452,10 +503,10 @@ export const wechatPublisher: Publisher = {
     const api = new WechatApi(ctx.host, credentials);
     const account = credentials.appId;
     const state = await ctx.host.store.read();
-    const { entry } = draftMapping(state, ctx, 'wechat', account);
+    const { entry, warning: typeChanged } = wechatDraftEntry(state, ctx, account, 'news');
     if (entry?.status === 'uncertain' && !ctx.confirmUncertain)
       return { outcome: 'failed', error: { ...uncertainBlocker('wechat'), stage: 'push' } };
-    const warnings: Warning[] = [];
+    const warnings: Warning[] = typeChanged ? [typeChanged] : [];
     let chars: number | undefined;
     const save = (patch: Omit<NonNullable<typeof entry>, 'account' | 'updatedAt'>) =>
       ctx.host.store.update((s) => {
