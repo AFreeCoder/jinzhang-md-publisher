@@ -19,6 +19,7 @@ import {
   escapeHtml,
   replaceImageReference,
   extractMarkdownTitle,
+  DEFAULT_LINK_QUERY,
   type RenderResult,
   type PreparedArticle,
   type ImageRef,
@@ -39,14 +40,20 @@ import {
   freshDocument,
   initialDocument,
   restoreDocument,
+  restoreSettings,
+  articlePart,
+  settingsPart,
   STORAGE_KEY,
+  SETTINGS_KEY,
   LEGACY_PREVIOUS_KEY,
   templates,
+  fixedFlags,
+  tagCopyLinks,
   sampleMarkdown,
   sampleTitle,
-  normalizeCollectionLink,
   type DocumentState,
   type FixedContent,
+  type LinkRefSettings,
 } from '../../lib/document';
 const titleFor = (p: string) => (p === 'wechat' ? '公众号' : '知乎');
 // 分段控件的滑块：按钮宽度不等，按选中按钮的实测位置与宽度摆放，尺寸变化时重算。
@@ -78,7 +85,6 @@ export default function Workspace() {
   const [preview, setPreview] = useState('');
   const [notice, setNotice] = useState('');
   const [missingCopy, setMissingCopy] = useState(false);
-  const [collectionError, setCollectionError] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
   const [pendingUploads, setPendingUploads] = useState<string[]>([]);
@@ -99,7 +105,8 @@ export default function Workspace() {
   const version = useRef(new TaskVersion());
   const controller = useRef<AbortController | undefined>(undefined);
   const currentJob = useRef<
-    { version: number; payload: Promise<CopyPayload>; store: CopyImageStore } | undefined
+    | { version: number; payload: Promise<CopyPayload>; store: CopyImageStore; tagged: number }
+    | undefined
   >(undefined);
   const editor = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -155,7 +162,6 @@ export default function Workspace() {
     controller.current?.abort();
     setCopyPhase('idle');
     setMissingCopy(false);
-    if (change.platform !== undefined) setCollectionError(false);
     setMessage('');
     currentJob.current = undefined;
     setBusy(false);
@@ -164,18 +170,28 @@ export default function Workspace() {
     setDoc(next);
   }
   function updateFixed(change: Partial<FixedContent>) {
-    if (change.collection !== undefined) setCollectionError(false);
     update({ fixed: { ...doc.fixed, [doc.platform]: { ...fixed, ...change } } });
   }
+  function updateLinkRef(change: Partial<LinkRefSettings>) {
+    update({ linkRef: { ...doc.linkRef, ...change } });
+  }
   useEffect(() => {
-    let restored: DocumentState | null = null;
+    let restored: ReturnType<typeof restoreDocument> = null;
+    let settings: ReturnType<typeof restoreSettings> = null;
     try {
-      restored = restoreDocument(localStorage.getItem(STORAGE_KEY));
+      const saved = localStorage.getItem(STORAGE_KEY);
+      restored = restoreDocument(saved);
+      // 开头结尾与来源参数长期保留；旧版跟原文存在一起，1 天内的迁移过来。
+      settings = restoreSettings(localStorage.getItem(SETTINGS_KEY), saved);
       localStorage.removeItem(LEGACY_PREVIOUS_KEY);
     } catch {
       /* 存储不可用时当作首次打开，保存时再提示。 */
     }
-    const doc = restored ?? initialDocument(location.origin);
+    const doc: DocumentState = {
+      ...initialDocument(location.origin),
+      ...restored,
+      ...settings,
+    };
     docRef.current = doc;
     setDoc(doc);
     if (restored) setStorageStatus('已恢复本浏览器内容');
@@ -199,8 +215,9 @@ export default function Workspace() {
       return;
     }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
-      setStorageStatus('已暂存在本浏览器，保留 1 天');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(articlePart(doc)));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settingsPart(doc)));
+      setStorageStatus('已暂存在本浏览器，原文保留 1 天');
     } catch {
       setStorageStatus('暂存失败');
       setNotice('浏览器存储不可用或空间不足，刷新后内容不会保留。');
@@ -224,7 +241,7 @@ export default function Workspace() {
             ? preparedCache.current.value
             : await prepare(input, {
                 platform: doc.platform,
-                fixed,
+                fixed: fixedFlags(fixed),
                 resolver: resolver.current,
                 config,
                 version: String(token),
@@ -461,6 +478,7 @@ export default function Workspace() {
     const waiter = renderWaiter.current?.version === token ? renderWaiter.current : undefined;
     if (!fresh && !waiter) return;
     const platform = doc.platform;
+    const linkRef = doc.linkRef;
     setBusy(true);
     setCopyPhase('working');
     setMessage('正在准备正文与图片…');
@@ -492,9 +510,14 @@ export default function Workspace() {
         .then((p) => {
           version.current.assert(token);
           setMessage('正文已准备完成。');
-          return p;
+          if (platform !== 'zhihu') return p;
+          // 知乎按设置给链接加来源参数，只改复制出去的正文，预览不变。
+          const tagged = tagCopyLinks(p.html, linkRef);
+          created.tagged = tagged.count;
+          return { ...p, html: tagged.html };
         });
-      job = { version: token, payload, store };
+      const created = { version: token, payload, store, tagged: 0 };
+      job = created;
       currentJob.current = job;
       payload.catch(() => {});
     }
@@ -513,8 +536,9 @@ export default function Workspace() {
         version.current.assert(token);
         setCopyPhase('success');
         setMessage('已复制');
-        if (selected.store.warnings.length)
-          setNotice(selected.store.warnings.map((w) => w.message).join(' '));
+        const notes = selected.store.warnings.map((w) => w.message);
+        if (selected.tagged) notes.push(`已给 ${selected.tagged} 处链接加上来源参数。`);
+        if (notes.length) setNotice(notes.join(' '));
         setBusy(false);
       })
       .catch(async (error: unknown) => {
@@ -584,6 +608,7 @@ export default function Workspace() {
       clearTransitCache();
       setUploadFailed([]);
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(SETTINGS_KEY);
       skipSave.current = true;
       preparedCache.current = undefined;
       currentJob.current = undefined;
@@ -952,51 +977,48 @@ export default function Workspace() {
             </label>
             {fixed.footer && (
               <div className="fixed-fields">
-                <select
-                  aria-label="结尾样式"
-                  value={fixed.footerStyle}
-                  onChange={(e) => updateFixed({ footerStyle: e.target.value })}
-                >
-                  <option>一句寄语</option>
-                  <option>细线落款</option>
-                </select>
-                {(
-                  [
-                    ['closing', '结尾话术'],
-                    ['collection', '合集链接'],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key}>
-                    {label}
-                    <input
-                      type="text"
-                      value={fixed[key]}
-                      placeholder={key === 'collection' ? 'https://…' : ''}
-                      aria-invalid={(key === 'collection' && collectionError) || undefined}
-                      aria-describedby={
-                        key === 'collection' && collectionError ? 'collection-error' : undefined
-                      }
-                      onChange={(e) => updateFixed({ [key]: e.target.value })}
-                      onBlur={
-                        key === 'collection'
-                          ? (e) => {
-                              const value = normalizeCollectionLink(e.target.value);
-                              if (value === null) setCollectionError(true);
-                              else setCollectionError(false);
-                            }
-                          : undefined
-                      }
-                    />
-                  </label>
-                ))}
-                {collectionError && (
-                  <p id="collection-error" role="alert">
-                    请输入有效的网页地址
-                  </p>
-                )}
+                <label>
+                  结尾 Markdown
+                  <textarea
+                    rows={4}
+                    value={fixed.footerMarkdown}
+                    placeholder={'例如：愿每一次认真表达，都被好好看见。\n[往期文章](https://…)'}
+                    onChange={(e) => updateFixed({ footerMarkdown: e.target.value })}
+                  />
+                </label>
+                <p>追加在正文之后，写法与正文相同，可用 {'{{date}}'}、{'{{author}}'}。</p>
               </div>
             )}
           </div>
+          {doc.platform === 'zhihu' && (
+            <div className="settings-section">
+              <h3>链接来源参数</h3>
+              <div className="fixed-fields link-ref-fields">
+                <label>
+                  域名
+                  <input
+                    type="text"
+                    value={doc.linkRef.domains}
+                    placeholder="例如 example.com，多个用逗号分隔"
+                    onChange={(e) => updateLinkRef({ domains: e.target.value })}
+                  />
+                </label>
+                <label>
+                  参数
+                  <input
+                    type="text"
+                    value={doc.linkRef.query}
+                    placeholder={DEFAULT_LINK_QUERY}
+                    onChange={(e) => updateLinkRef({ query: e.target.value })}
+                  />
+                </label>
+                <p>
+                  复制到知乎时，给这些域名（含子域名）的链接追加参数，显示的文字不变；已带其中任一参数的链接不动。网页拿不到知乎文章
+                  ID，{'{{id}}'} 用当天日期代替；参数留空时用默认的 UTM。
+                </p>
+              </div>
+            </div>
+          )}
         </aside>
       </div>
       <div className="statusbar">

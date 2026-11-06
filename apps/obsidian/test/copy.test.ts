@@ -87,11 +87,9 @@ const zhihu = (images: ImageRef[]) =>
     images,
   }) as unknown as RenderResult;
 describe('复制到知乎（不需要登录）', () => {
-  it('按配置加链接来源标记，复制时拿不到文章 ID，用当天日期代替；公众号复制不加', async () => {
+  it('按配置给链接加来源参数，复制时拿不到文章 ID，用当天日期代替；公众号复制不加', async () => {
     const { context } = ossHost({ oss: null });
-    context.config = normalizeConfig({
-      zhihu: { linkRef: { domains: ['example.org'], value: 'zhihu_afc_{{id}}' } },
-    });
+    context.config = normalizeConfig({ zhihu: { linkRef: { domains: ['example.org'] } } });
     const html = '<p>升级：<a href="https://example.org">https://example.org</a></p>';
     const date = compactDate(context.host.now());
     const placed = await placeForCopy(
@@ -100,7 +98,7 @@ describe('复制到知乎（不需要登录）', () => {
       () => {},
     );
     expect(placed.html).toBe(
-      `<p>升级：<a href="https://example.org/?ref=zhihu_afc_${date}">https://example.org</a></p>`,
+      `<p>升级：<a href="https://example.org/?utm_source=zhihu&amp;utm_medium=social&amp;utm_content=${date}">https://example.org</a></p>`,
     );
     const wechat = await placeForCopy(
       { platform: 'wechat', html, images: [] } as unknown as RenderResult,

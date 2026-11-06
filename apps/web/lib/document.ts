@@ -1,86 +1,168 @@
-import type { Platform, ThemeId } from '@jinzhang/core';
+import {
+  DEFAULT_LINK_QUERY,
+  linkQuery,
+  normalizeLinkQuery,
+  parseDomains,
+  tagLinks,
+  type Platform,
+  type ThemeId,
+} from '@jinzhang/core';
 export const STORAGE_KEY = 'jinzhang.document.v1';
+/** 开头结尾与链接来源参数是长期设置，单独保存，不随原文 1 天清理；「清除」时一并删除。 */
+export const SETTINGS_KEY = 'jinzhang.settings.v1';
 /** 已下线的上一稿备份，打开页面时删除。 */
 export const LEGACY_PREVIOUS_KEY = 'jinzhang.previous-article.v1';
-/** 网页只是临时排版：当前内容暂存在本浏览器供刷新恢复，从最后一次修改起保留 1 天。 */
+/** 网页只是临时排版：当前原文暂存在本浏览器供刷新恢复，从最后一次修改起保留 1 天。 */
 export const STORAGE_TTL = 24 * 3600_000;
+export const DEFAULT_CLOSING = '愿每一次认真表达，都被好好看见。';
 export interface FixedContent {
   header: boolean;
   footer: boolean;
   headerStyle: string;
-  footerStyle: string;
   author: string;
   slogan: string;
-  closing: string;
-  collection: string;
+  /** 结尾按 Markdown 排版，与插件一致；可用 `{{date}}`、`{{author}}`。 */
+  footerMarkdown: string;
 }
-export interface DocumentState {
+/** 复制到知乎时给链接加的来源参数；按输入原样保存，用的时候再整理。 */
+export interface LinkRefSettings {
+  domains: string;
+  query: string;
+}
+export interface Settings {
+  fixed: Record<Platform, FixedContent>;
+  linkRef: LinkRefSettings;
+}
+export interface DocumentState extends Settings {
   markdown: string;
   title: string;
   theme: ThemeId;
   platform: Platform;
-  fixed: Record<Platform, FixedContent>;
   /** 原文或设置最后一次修改的时间，毫秒时间戳。 */
   updatedAt: number;
 }
-export function freshDocument(now = Date.now()): DocumentState {
-  const fixed = () => ({
+export type ArticleState = Omit<DocumentState, keyof Settings>;
+export function freshSettings(): Settings {
+  const fixed = (): FixedContent => ({
     header: false,
     footer: false,
     headerStyle: '简约署名',
-    footerStyle: '一句寄语',
     author: '',
     slogan: '',
-    closing: '愿每一次认真表达，都被好好看见。',
-    collection: '',
+    footerMarkdown: DEFAULT_CLOSING,
   });
+  return {
+    fixed: { wechat: fixed(), zhihu: fixed() },
+    linkRef: { domains: '', query: DEFAULT_LINK_QUERY },
+  };
+}
+export function freshDocument(now = Date.now()): DocumentState {
   return {
     markdown: '',
     title: '',
     theme: 'sspai',
     platform: 'wechat',
-    fixed: { wechat: fixed(), zhihu: fixed() },
+    ...freshSettings(),
     updatedAt: now,
   };
 }
-/** 读取暂存的文档；没有、格式无效、超过 1 天或是旧版本留下的（没有时间戳）都返回 null。 */
-export function restoreDocument(raw: string | null, now = Date.now()): DocumentState | null {
-  let d;
+const PLATFORM_KEYS = ['wechat', 'zhihu'] as const;
+function parse(raw: string | null) {
   try {
-    d = JSON.parse(raw || 'null');
+    return JSON.parse(raw || 'null');
   } catch {
     return null;
   }
+}
+const isText = (value: unknown): value is string => typeof value === 'string';
+/** 表单里的文字按字面输出：转义 Markdown 标点。 */
+const safe = (s: string) => s.replace(/[\\`*_{}[\]()#+.!<>|~=:$/?&@%,;"'-]/g, '\\$&');
+/** 读取暂存的原文；没有、格式无效、超过 1 天或是旧版本留下的（没有时间戳）都返回 null。 */
+export function restoreDocument(raw: string | null, now = Date.now()): ArticleState | null {
+  const d = parse(raw);
   if (
     !d ||
-    typeof d.markdown !== 'string' ||
-    typeof d.title !== 'string' ||
-    !['wechat', 'zhihu'].includes(d.platform) ||
+    !isText(d.markdown) ||
+    !isText(d.title) ||
+    !PLATFORM_KEYS.includes(d.platform) ||
     !['sspai', 'native', 'mac'].includes(d.theme) ||
     !Number.isFinite(d.updatedAt) ||
     now - d.updatedAt >= STORAGE_TTL
   )
     return null;
-  for (const platform of ['wechat', 'zhihu']) {
-    const f = d.fixed?.[platform];
-    if (
-      !f ||
-      typeof f.header !== 'boolean' ||
-      typeof f.footer !== 'boolean' ||
-      ['headerStyle', 'footerStyle', 'author', 'slogan', 'closing', 'collection'].some(
-        (k) => typeof f[k] !== 'string',
-      )
-    )
-      return null;
-  }
   return {
     markdown: d.markdown,
     title: d.title,
     theme: d.theme,
     platform: d.platform,
-    fixed: d.fixed,
     updatedAt: d.updatedAt,
   };
+}
+/** 旧版结尾是「寄语 + 落款样式 + 合集链接」表单，换成排版结果相同的 Markdown。 */
+function legacyFooter(f: Record<string, unknown>) {
+  const link = normalizeCollectionLink(isText(f.collection) ? f.collection : '');
+  const collection = link ? `\n[继续阅读](${link.replace(/[()\s]/g, encodeURIComponent)})` : '';
+  const closing = isText(f.closing) ? f.closing : '';
+  return `${f.footerStyle === '细线落款' ? '---\n' : ''}${safe(closing)}${collection}`;
+}
+function readFixed(f: unknown, legacy: boolean): FixedContent | null {
+  if (!f || typeof f !== 'object') return null;
+  const v = f as Record<string, unknown>;
+  if (
+    typeof v.header !== 'boolean' ||
+    typeof v.footer !== 'boolean' ||
+    !isText(v.headerStyle) ||
+    !isText(v.author) ||
+    !isText(v.slogan)
+  )
+    return null;
+  const footerMarkdown = legacy ? legacyFooter(v) : v.footerMarkdown;
+  if (!isText(footerMarkdown)) return null;
+  return {
+    header: v.header,
+    footer: v.footer,
+    headerStyle: v.headerStyle,
+    author: v.author,
+    slogan: v.slogan,
+    footerMarkdown,
+  };
+}
+function readAllFixed(fixed: unknown, legacy: boolean) {
+  const result = {} as Record<Platform, FixedContent>;
+  for (const platform of PLATFORM_KEYS) {
+    const f = readFixed((fixed as Record<string, unknown> | null)?.[platform], legacy);
+    if (!f) return null;
+    result[platform] = f;
+  }
+  return result;
+}
+/**
+ * 读取长期设置；没有时从 1 天内的旧版暂存里迁移开头结尾（旧版设置跟原文存在一起），
+ * 再没有返回 null。
+ */
+export function restoreSettings(
+  raw: string | null,
+  legacyDocument: string | null = null,
+  now = Date.now(),
+): Settings | null {
+  const s = parse(raw);
+  const fixed = s && readAllFixed(s.fixed, false);
+  if (fixed && isText(s.linkRef?.domains) && isText(s.linkRef?.query))
+    return { fixed, linkRef: { domains: s.linkRef.domains, query: s.linkRef.query } };
+  if (s || !restoreDocument(legacyDocument, now)) return null;
+  const old = readAllFixed(parse(legacyDocument).fixed, true);
+  return old && { fixed: old, linkRef: freshSettings().linkRef };
+}
+export function articlePart({ fixed: _f, linkRef: _l, ...article }: DocumentState): ArticleState {
+  return article;
+}
+export function settingsPart({ fixed, linkRef }: DocumentState): Settings {
+  return { fixed, linkRef };
+}
+/** 复制到知乎时按设置给链接加来源参数：网页拿不到知乎文章 ID，`{{id}}` 用当天日期代替。 */
+export function tagCopyLinks(html: string, settings: LinkRefSettings, now = new Date()) {
+  const query = normalizeLinkQuery(settings.query) || DEFAULT_LINK_QUERY;
+  return tagLinks(html, parseDomains(settings.domains), linkQuery(query, undefined, now));
 }
 export function normalizeCollectionLink(value: string): string | null {
   const input = value.trim();
@@ -99,13 +181,14 @@ export function normalizeCollectionLink(value: string): string | null {
   }
 }
 export function templates(f: FixedContent) {
-  const safe = (s: string) => s.replace(/[\\`*_{}[\]()#+.!<>|~=:$/?&@%,;"'-]/g, '\\$&');
-  const link = normalizeCollectionLink(f.collection);
-  const collection = link ? `\n[继续阅读](${link.replace(/[()\s]/g, encodeURIComponent)})` : '';
   return {
     header: `${f.headerStyle === '留白分隔' ? '---\n' : ''}${safe(f.author)}\n\n${safe(f.slogan)}`,
-    footer: `${f.footerStyle === '细线落款' ? '---\n' : ''}${safe(f.closing)}${collection}`,
+    footer: f.footerMarkdown,
   };
+}
+/** 交给 core 的开头结尾开关：结尾是空的就不加。 */
+export function fixedFlags(f: FixedContent) {
+  return { header: f.header, footer: f.footer && !!f.footerMarkdown.trim() };
 }
 export const sampleTitle = '把写作还给写作';
 /** 示例稿是一份常用 Markdown 语法速览；配图跟随当前站点，本地与线上都能直接显示。 */
@@ -216,7 +299,7 @@ pnpm install && pnpm dev
 [^2]: 公众号在文末列出「注释」，知乎会转成平台自带的参考文献。
 `;
 }
-/** 没有可用暂存（首次打开、超过 1 天或清除后）时的文档：预置示例稿，让成品预览立刻可见。 */
+/** 没有可用暂存（首次打开、超过 1 天或清除后）时的原文：预置示例稿，让成品预览立刻可见。 */
 export function initialDocument(origin: string): DocumentState {
   return { ...freshDocument(), markdown: sampleMarkdown(origin), title: sampleTitle };
 }

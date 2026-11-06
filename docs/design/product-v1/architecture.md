@@ -107,7 +107,7 @@ interface PublishHost {          // 只有命令行与插件实现；插件已�
 | `store` / `secrets` | `./node` 的文件实现，目录 `~/.config/jinzhang/` | 同一份 `./node` 实现，Node 内置模块由 Obsidian 桌面端提供 | 无；文档与设置存 `localStorage` |
 | `AssetResolver` | 相对源文件目录解析路径 | 按引用形式分支：嵌入图预处理成 `jz-local://vault/…`，`file://` 与盘符路径预处理成 `jz-local://file/…`，其余相对引用交给 `getFirstLinkpathDest`，找不到再按笔记所在目录解析磁盘路径（[obsidian-plugin.md](obsidian-plugin.md) 第 3、4 节） | `./browser` 的 `BrowserAssetResolver`（IndexedDB `jinzhang-assets`） |
 
-依赖边界：core 的根入口只导出渲染与预览需要的东西，不重新导出 `./node`、`./publish` 里的实现；网页版只依赖 `.`、`./preview`、`./browser`。`pnpm check` 里的 `scripts/check-browser-boundary.mjs` 把 core 产物与网页的剪贴板模块按浏览器打包，出现 Node 内置模块、sharp、ali-oss 或投递代码即失败，并扫描 Next 客户端产物里没有服务端密钥的变量名；CI 每次推送执行。插件的构建产物同样检查不含 sharp 与 ali-oss。
+依赖边界：core 的根入口只导出渲染与预览需要的东西，以及网页与插件共用的链接来源参数纯函数（`link-ref.ts`），不重新导出 `./node`、`./publish` 里的实现；网页版只依赖 `.`、`./preview`、`./browser`。`pnpm check` 里的 `scripts/check-browser-boundary.mjs` 把 core 产物与网页的剪贴板模块按浏览器打包，出现 Node 内置模块、sharp、ali-oss 或投递代码即失败，并扫描 Next 客户端产物里没有服务端密钥的变量名；CI 每次推送执行。插件的构建产物同样检查不含 sharp 与 ali-oss。
 
 ## 4. 渲染管线
 
@@ -323,7 +323,7 @@ type PushResult =
 - 登录态校验：`GET https://www.zhihu.com/api/v4/me` 返回 `id`、`name`、`avatar_url`；401、403 或 `name` 为「知乎用户」视为未登录
 - 图片：对规范化后的字节算 MD5 → `POST https://api.zhihu.com/images`，体 `{ image_hash, source: "article" }` → 响应 `upload_file.state` 为 1 表示知乎已有此图，为 2 则用响应里的 `upload_token`（`access_id`、`access_key`、`access_token`）自行计算阿里云 OSS V1 签名，`PUT https://zhihu-pics-upload.zhimg.com/v2-<md5>`（bucket 名 `zhihu-pics`，头 `x-oss-date`、`x-oss-security-token`、`x-oss-user-agent`、`Content-Type`）→ 轮询 `GET https://api.zhihu.com/images/<image_id>` 直到 `status` 为 `success`，取 `src`、`original_src`、`watermark`、`watermark_src` → 正文 `img` 的 `src` 与 `data-original-src` 写 `<original_src>.<ext>`，宽高由本地解码得到。一期不做动图：GIF 需要分片上传，先取首帧按静态图处理并警告
 - 草稿：首次 `POST https://zhuanlan.zhihu.com/api/articles/drafts`，体 `{ title, delta_time: 0, can_reward: false }`，拿到 `id` 后立刻写入 `state.drafts`；每次推送 `PATCH https://zhuanlan.zhihu.com/api/articles/<id>/draft`，体 `{ title, content, table_of_contents: false, delta_time: 30, can_reward: false }`；有封面时再 `PATCH` 一次 `{ titleImage: <封面上传结果的 original_src>, isTitleImageFullScreen: false, delta_time: 30 }`
-- 链接来源标记：配置了 `zhihu.linkRef.domains` 时，写正文前，给成品 HTML 里主机名等于某个域名或是其子域名的 http(s) 链接加 `ref` 参数。只改 `href` 和脚注引用的 `data-url`，显示文字不动；已有 `ref` 的不动；原有路径、参数和锚点保留，`ref` 追加在最后。`value` 里的 `{{id}}` 取草稿 ID：首次推送先建空草稿拿到 ID 再写正文，草稿 ID 就是发布后 `/p/<id>` 里的文章 ID，所以标记写进草稿时就是终值，发布后不用再改；原草稿不可用而重建时，换成新草稿的 ID。`{{date}}` 是本地日期 `YYYYMMDD`。只在知乎生效，公众号、博客、预览不经过这一步；网页版没有这项配置。实现见 `publish/link-ref.ts`
+- 链接来源参数：配置了 `zhihu.linkRef.domains` 时，写正文前，给成品 HTML 里主机名等于某个域名或是其子域名的 http(s) 链接追加 `zhihu.linkRef.query` 里的查询参数，默认是 GA4 等统计工具能直接识别的 UTM：`utm_source=zhihu&utm_medium=social&utm_content={{id}}`。只改 `href` 和脚注引用的 `data-url`，显示文字不动；已带其中任一参数的不动；原有路径、参数和锚点保留，来源参数追加在最后。`{{id}}` 取草稿 ID：首次推送先建空草稿拿到 ID 再写正文，草稿 ID 就是发布后 `/p/<id>` 里的文章 ID，所以参数写进草稿时就是终值，发布后不用再改；原草稿不可用而重建时，换成新草稿的 ID。`{{date}}` 是本地日期 `YYYYMMDD`。只在知乎生效，公众号、博客、预览不经过这一步。加参数的纯函数在 core 根入口（`link-ref.ts`），网页版复制到知乎也用它（`{{id}}` 用日期代替，见 [web.md](web.md) 第 7 节）；按配置加参数的入口是 `publish/link-ref.ts`
 - 只建草稿与更新，不调用 `content/publish`，不设置话题
 - 入口：`https://zhuanlan.zhihu.com/p/<id>/edit`，同时提示草稿在创作中心的草稿箱
 - 草稿是否还在：没有找到读取草稿的接口证据，一期不做存在性预检；`PATCH` 返回 404 视为草稿已不可用，新建并提示（403 不走这条分支，见失败识别）。用户在知乎侧已把这篇发布后再重推，`PATCH` 会写进已发布文章的草稿而不改线上内容，这一点在结果里提示
@@ -374,11 +374,13 @@ type PushResult =
     "start": { "slogan": "", "producerName": "" },
     "proxy": ""
   },
-  "zhihu": { "linkRef": { "domains": [], "value": "zhihu_{{id}}" } }
+  "zhihu": {
+    "linkRef": { "domains": [], "query": "utm_source=zhihu&utm_medium=social&utm_content={{id}}" }
+  }
 }
 ```
 
-- `zhihu.linkRef` 是知乎链接的来源标记（8.2 节）：`domains` 为空时不改动；读取时去掉协议、路径、端口与开头的 `www.`，不合法的域名丢弃；`value` 为空时回到默认值
+- `zhihu.linkRef` 是知乎链接的来源参数（8.2 节）：`domains` 为空时不改动；读取时去掉协议、路径、端口与开头的 `www.`，不合法的域名丢弃；`query` 是查询参数模板，读取时去掉开头的 `?`、空白与没有参数名的项，为空时回到默认的 UTM。0.2.2 的 `value`（`ref` 参数的值）不再读取
 - `fixed`、`wechat.card`、`wechat.start` 与 `author` 的含义见第 6 节：公众号的 `header`、`footer` 是开头样式一、结尾样式一的开关，知乎只有 `footer`
 - `templates/wechat/footer.md`、`templates/zhihu/footer.md` 是两段结尾 Markdown；两个 `header.md` 目前不读取
 - `blogs` 是通过文章接口推送的博客，缺省时只有 GPT101；`targets` 里的博客写作 `blog:<id>`，不存在的博客读取时丢弃。博客文章的映射存在 `state.json` 的 `drafts[<源文件>].blogs[<id>]`（slug、上次推送的标题与正文摘要、状态）
@@ -532,3 +534,4 @@ issue #1 快照 9 的八项实测，按它们各自影响的设计决策归位�
 - 2026-10-28 按用户要求新增博客投递与长期图床（issue #38）：第 1 节加实现状态；第 5 节知乎中转改为只属于网页版，本地形态复制到知乎改传用户的长期图床；第 8 节补博客这类以 Markdown 为输入的投递目标；第 9 节凭证文件增加 `oss` 与博客 API Key
 - 2026-11-06 裸网址不再吞进后面的中文标点与文字：截断规则由“末尾句读”扩为“第一个非 ASCII 标点、空白或符号”（issue #48，第 4 节阶段 2）
 - 2026-11-06 新增知乎链接来源标记：配置 `zhihu.linkRef`（第 9 节），推送时按草稿 ID 写进正文（8.2 节）。来源 [issue #49](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/49)
+- 2026-11-06 按用户要求来源标记改用 UTM 参数：`zhihu.linkRef.value` 换成查询参数模板 `query`，默认 `utm_source=zhihu&utm_medium=social&utm_content={{id}}`；加参数的纯函数移到 core 根入口，网页版复制到知乎也用（第 3、8.2、9 节）。来源 [issue #53](https://github.com/AFreeCoder/jinzhang-md-publisher/issues/53)

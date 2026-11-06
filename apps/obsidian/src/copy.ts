@@ -64,7 +64,7 @@ export class LongTermCopyStore implements ImageStore {
 }
 /**
  * 复制只含正文与启用的固定内容（设计第 8 节）：公众号内嵌 data URL；知乎的本地图片传到长期图床，网络图片保留原地址。
- * 复制不经过平台账号，两个平台都不需要登录。知乎按配置加链接来源标记，复制时拿不到文章 ID，用日期代替。
+ * 复制不经过平台账号，两个平台都不需要登录。知乎按配置给链接加来源参数，复制时拿不到文章 ID，用日期代替。
  */
 export async function placeForCopy(
   result: RenderResult,

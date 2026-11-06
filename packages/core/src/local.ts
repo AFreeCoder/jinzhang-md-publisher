@@ -1,4 +1,6 @@
 import type { Platform, ThemeId, WechatCard } from './types';
+import { DEFAULT_LINK_QUERY, normalizeLinkQuery, parseDomains } from './link-ref';
+export { parseDomains } from './link-ref';
 export type { WechatCard } from './types';
 /** 本地形态（命令行与插件）共用的配置、状态与凭证结构，读写实现见 `./node`。 */
 export const PLATFORMS: Platform[] = ['wechat', 'zhihu'];
@@ -63,31 +65,11 @@ export interface JinzhangConfig {
   };
   zhihu: {
     /**
-     * 推送和复制到知乎时，给这些域名（含子域名）的链接加 `ref` 来源参数，域名为空时不改动。
-     * `value` 里的 `{{id}}` 是知乎文章 ID（复制时用日期代替），`{{date}}` 是 `YYYYMMDD`。
+     * 推送和复制到知乎时，给这些域名（含子域名）的链接追加 `query` 里的来源参数，域名为空时不改动。
+     * `query` 是查询参数模板，默认 UTM：`{{id}}` 是知乎文章 ID（复制时用日期代替），`{{date}}` 是 `YYYYMMDD`。
      */
-    linkRef: { domains: string[]; value: string };
+    linkRef: { domains: string[]; query: string };
   };
-}
-const DOMAIN = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/;
-/** 来源标记的域名：去掉协议、路径、端口与开头的 `www.`，不合法的丢弃，去重。接受数组或用逗号、空白分隔的文本。 */
-export function parseDomains(raw: unknown): string[] {
-  const items = Array.isArray(raw)
-    ? raw.filter((item): item is string => typeof item === 'string')
-    : typeof raw === 'string'
-      ? raw.split(/[\s,，、;；]+/)
-      : [];
-  const domains: string[] = [];
-  for (const item of items) {
-    const domain = item
-      .trim()
-      .toLowerCase()
-      .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
-      .replace(/[/:?#].*$/, '')
-      .replace(/^www\./, '');
-    if (DOMAIN.test(domain) && !domains.includes(domain)) domains.push(domain);
-  }
-  return domains;
 }
 export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends readonly unknown[]
@@ -117,7 +99,7 @@ export function defaultConfig(): JinzhangConfig {
       start: { slogan: '', producerName: '' },
       proxy: '',
     },
-    zhihu: { linkRef: { domains: [], value: 'zhihu_{{id}}' } },
+    zhihu: { linkRef: { domains: [], query: DEFAULT_LINK_QUERY } },
   };
 }
 export const isRecord = (value: unknown): value is Record<string, any> =>
@@ -172,7 +154,7 @@ export function normalizeConfig(raw: unknown): JinzhangConfig {
     zhihu: {
       linkRef: {
         domains: Array.isArray(linkRef.domains) ? parseDomains(linkRef.domains) : [],
-        value: pick(linkRef.value, '').trim() || base.zhihu.linkRef.value,
+        query: normalizeLinkQuery(linkRef.query) || base.zhihu.linkRef.query,
       },
     },
   };

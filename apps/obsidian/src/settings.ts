@@ -3,6 +3,7 @@ import { themes, type Platform } from '@jinzhang/core';
 import {
   blogTarget,
   checkOss,
+  DEFAULT_LINK_QUERY,
   missingOssFields,
   normalizeBlogUrl,
   normalizeOss,
@@ -307,16 +308,16 @@ export class JinzhangSettingTab extends PluginSettingTab {
       );
     footer('zhihu');
     field(
-      '链接来源标记：域名',
-      '推送和复制到知乎时，给这些域名（含子域名）的链接加上 ?ref= 来源参数；只改链接地址，不改显示的文字，已带 ref 的链接不动。多个域名用逗号分隔，留空则不加。',
+      '链接来源参数：域名',
+      '推送和复制到知乎时，给这些域名（含子域名）的链接追加下面的来源参数；只改链接地址，不改显示的文字，已带其中任一参数的链接不动。多个域名用逗号分隔，留空则不加。',
       config.zhihu.linkRef.domains.join(', '),
       (value) => ({ zhihu: { linkRef: { domains: parseDomains(value) } } }),
     );
     field(
-      '链接来源标记：标记',
-      'ref 的值。{{id}} 是知乎文章 ID（复制时拿不到，用当天日期代替），{{date}} 是当天日期（YYYYMMDD）。',
-      config.zhihu.linkRef.value,
-      (value) => ({ zhihu: { linkRef: { value } } }),
+      '链接来源参数：参数',
+      `追加到链接后的查询参数，默认是 GA4 能直接识别的 UTM：${DEFAULT_LINK_QUERY}。{{id}} 是知乎文章 ID（复制时拿不到，用当天日期代替），{{date}} 是当天日期（YYYYMMDD）；留空恢复默认。`,
+      config.zhihu.linkRef.query,
+      (value) => ({ zhihu: { linkRef: { query: value } } }),
     );
     containerEl.createEl('h3', { text: '高级' });
     new Setting(containerEl)

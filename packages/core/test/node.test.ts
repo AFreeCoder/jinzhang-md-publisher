@@ -82,12 +82,12 @@ describe('公共配置', () => {
     expect(raw.targets).toEqual(['zhihu']);
     expect(raw.version).toBe(1);
   });
-  it('知乎链接来源标记分两次保存，域名与标记互不覆盖，重新读取不丢', async () => {
+  it('知乎链接来源参数分两次保存，域名与参数互不覆盖，重新读取不丢', async () => {
     await files.config.update({ zhihu: { linkRef: { domains: ['example.org'] } } });
-    await files.config.update({ zhihu: { linkRef: { value: 'zhihu_afc_{{id}}' } } });
+    await files.config.update({ zhihu: { linkRef: { query: 'utm_source=zh&utm_content={{id}}' } } });
     expect((await files.config.read()).zhihu.linkRef).toEqual({
       domains: ['example.org'],
-      value: 'zhihu_afc_{{id}}',
+      query: 'utm_source=zh&utm_content={{id}}',
     });
     await files.config.update({ zhihu: { linkRef: { domains: [] } } });
     expect((await files.config.read()).zhihu.linkRef.domains).toEqual([]);
