@@ -13,7 +13,14 @@ export {
   isPrivateHost,
   type PreparedImage,
 } from './images';
-export { compactDate, LINK_REF_PARAM, linkRefValue, tagLinks, tagZhihuLinks } from './link-ref';
+export {
+  compactDate,
+  DEFAULT_LINK_QUERY,
+  linkQuery,
+  normalizeLinkQuery,
+  tagLinks,
+} from '../link-ref';
+export { tagZhihuLinks } from './link-ref';
 export {
   wechatPublisher,
   probeEgressIp,

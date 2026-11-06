@@ -460,6 +460,14 @@ export default function ObsidianGuide() {
                     <th>知乎默认结尾</th>
                     <td>追加在知乎正文之后，只保留文字、图片与链接；知乎没有开头，也不带名片。</td>
                   </tr>
+                  <tr>
+                    <th>链接来源参数</th>
+                    <td>
+                      推送和复制到知乎时，给填写的域名（含子域名）的链接追加来源参数，默认是 GA4
+                      能直接识别的 UTM：<code>{'utm_source=zhihu&utm_medium=social&utm_content={{id}}'}</code>
+                      。<code>{'{{id}}'}</code> 推送时是知乎文章 ID，复制时用当天日期；显示的文字不变，域名留空则不加。
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>

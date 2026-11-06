@@ -419,22 +419,66 @@ test('标题提取忽略代码，示例替换保留两个平台的个人设置',
   );
   await expect(page.getByRole('checkbox', { name: '文章开头', exact: true })).toBeChecked();
 });
-test('合集网址补全协议，无效输入就地反馈', async ({ page }) => {
+test('结尾按 Markdown 排版；复制到知乎时按设置给链接加来源参数；设置不随原文 1 天清理', async ({
+  page,
+}) => {
   await page.goto('/format');
-  await page.getByRole('textbox', { name: 'Markdown 原文' }).fill('正文');
+  const editor = page.getByRole('textbox', { name: 'Markdown 原文' });
+  await editor.fill('正文看下 [官网](https://example.org)。');
+  await page.getByRole('button', { name: '知乎', exact: true }).click();
   await page.getByRole('checkbox', { name: '文章结尾', exact: true }).check();
-  const link = page.getByRole('textbox', { name: '合集链接' });
-  await link.fill('javascript:alert(1)');
-  await link.press('Tab');
-  await expect(page.locator('#collection-error')).toHaveText('请输入有效的网页地址');
-  await expect(link).toHaveAttribute('aria-invalid', 'true');
-  await link.fill('example.com/collection');
-  await link.press('Tab');
-  await expect(page.locator('#collection-error')).toHaveCount(0);
-  await expect(page.frameLocator('iframe').getByRole('link', { name: '继续阅读' })).toHaveAttribute(
+  const footer = page.getByRole('textbox', { name: '结尾 Markdown' });
+  await footer.fill('**升级**：[会员](https://www.example.org/p?a=1)\n\n接口：https://other.test');
+  const preview = page.frameLocator('iframe');
+  await expect(preview.locator('strong', { hasText: '升级' })).toBeVisible();
+  // 预览不加参数，只改复制出去的正文。
+  await expect(preview.getByRole('link', { name: '会员' })).toHaveAttribute(
     'href',
-    'https://example.com/collection',
+    'https://www.example.org/p?a=1',
   );
+  const domains = page.getByRole('textbox', { name: '域名', exact: true });
+  await domains.fill('example.org');
+  await expect(page.getByRole('textbox', { name: '参数', exact: true })).toHaveValue(
+    'utm_source=zhihu&utm_medium=social&utm_content={{id}}',
+  );
+  await page.getByRole('button', { name: '复制到知乎' }).click();
+  await expect(page.getByRole('button', { name: '已复制 ✓' })).toBeVisible();
+  await expect(page.getByText('已给 2 处链接加上来源参数。')).toBeVisible();
+  const date = await page.evaluate(() => {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const html = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    return (await items[0].getType('text/html')).text();
+  });
+  const utm = `utm_source=zhihu&amp;utm_medium=social&amp;utm_content=${date}`;
+  expect(html).toContain(`href="https://example.org/?${utm}"`);
+  expect(html).toContain(`href="https://www.example.org/p?a=1&amp;${utm}"`);
+  expect(html).toContain('href="https://other.test/"');
+  expect(html).not.toContain('other.test/?');
+  // 公众号复制不加。
+  await page.getByRole('button', { name: '微信公众号', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: '域名', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '复制到公众号' }).click();
+  await expect(page.getByRole('button', { name: '已复制 ✓' })).toBeVisible();
+  expect(
+    await page.evaluate(async () =>
+      (await (await navigator.clipboard.read())[0].getType('text/html')).text(),
+    ),
+  ).not.toContain('utm_');
+  // 原文过了 1 天被清掉，开头结尾与来源参数仍在。
+  await page.evaluate(() => {
+    const doc = JSON.parse(localStorage.getItem('jinzhang.document.v1')!);
+    doc.updatedAt = Date.now() - 25 * 3600_000;
+    localStorage.setItem('jinzhang.document.v1', JSON.stringify(doc));
+  });
+  await page.reload();
+  await expect(editor).toHaveValue(/^# 把写作还给写作/);
+  await page.getByRole('button', { name: '知乎', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: '文章结尾', exact: true })).toBeChecked();
+  await expect(footer).toHaveValue(/^\*\*升级\*\*/);
+  await expect(domains).toHaveValue('example.org');
 });
 test('补图、刷新恢复、真实富文本复制到两个平台、封面不进入正文', async ({ page }) => {
   await page.goto('/format');
@@ -544,6 +588,7 @@ test('两平台预览、移动布局和清除只作用于当前站点数据', as
     /^# 把写作还给写作/,
   );
   expect(await page.evaluate(() => localStorage.getItem('jinzhang.document.v1'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('jinzhang.settings.v1'))).toBeNull();
   await page.reload();
   await expect(page.getByRole('textbox', { name: 'Markdown 原文' })).toHaveValue(
     /^# 把写作还给写作/,

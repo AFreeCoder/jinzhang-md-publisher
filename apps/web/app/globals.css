@@ -456,12 +456,6 @@ footer {
   margin-top: 12px;
   font-size: 12px;
 }
-.fixed-fields input[aria-invalid='true'] {
-  border-color: var(--red);
-}
-#collection-error {
-  color: var(--red);
-}
 @media (max-width: 1100px) {
   .settings-backdrop {
     display: block;
@@ -745,7 +739,8 @@ footer {
   transform: translateX(11px);
 }
 select,
-.settings input[type='text'] {
+.settings input[type='text'],
+.settings textarea {
   width: 100%;
   margin-top: 10px;
   padding: 8px;
@@ -754,6 +749,12 @@ select,
   border-radius: 5px;
   font-size: 11px;
   color: #65695e;
+}
+.settings textarea {
+  display: block;
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.6;
 }
 .settings details summary {
   font-size: 10px;
@@ -932,8 +933,16 @@ select,
   color: #8b8e80;
   margin-top: 10px;
 }
-.fixed-fields input {
+.fixed-fields input,
+.fixed-fields textarea {
   margin-top: 4px !important;
+}
+/* 标题下直接是字段，不需要开关下方那段留白。 */
+.link-ref-fields {
+  padding-top: 0;
+}
+.link-ref-fields label:first-child {
+  margin-top: 0;
 }
 .empty-state {
   text-align: center;

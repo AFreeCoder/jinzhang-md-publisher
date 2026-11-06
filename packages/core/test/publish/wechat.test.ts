@@ -193,16 +193,14 @@ describe('公众号推送', () => {
     expect(m.state.images[hash].wechat?.[APP_ID]).toMatch(/^http:\/\/mmbiz\.qpic\.cn/);
     expect(m.state.covers[hash].wechat?.[APP_ID]).toBe('<COVER_MEDIA_ID>');
   });
-  it('知乎的链接来源标记不影响公众号正文', async () => {
+  it('知乎的链接来源参数不影响公众号正文', async () => {
     const m = setup();
-    const config = normalizeConfig({
-      zhihu: { linkRef: { domains: ['example.org'], value: 'zhihu_{{id}}' } },
-    });
+    const config = normalizeConfig({ zhihu: { linkRef: { domains: ['example.org'] } } });
     const a = await article(`${BODY}\n\n升级：[官网](https://example.org)`);
     await wechatPublisher.push(a, context(m.host, { config }));
     const add = JSON.parse(bodyText(m.calls('POST', /draft\/add/)[0])).articles[0];
     expect(add.content).toContain('href="https://example.org"');
-    expect(add.content).not.toContain('?ref=');
+    expect(add.content).not.toContain('utm_');
   });
   it('重推更新原草稿，图片与封面走缓存不再上传', async () => {
     const m = setup();

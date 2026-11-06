@@ -36,6 +36,7 @@ import { escapeHtml } from './place';
 export * from './types';
 export { themes } from './theme';
 export { escapeHtml, placeImages } from './place';
+export * from './link-ref';
 const lowlight = createLowlight(common);
 const schema: Options = {
   ...defaultSchema,

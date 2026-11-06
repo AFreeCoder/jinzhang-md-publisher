@@ -239,17 +239,16 @@ describe('知乎推送', () => {
     expect(risky.calls('POST', `${ZHUANLAN}/api/articles/drafts`)).toHaveLength(0);
     expect(risky.state.drafts[SOURCE].zhihu?.draftId).toBe('OLD');
   });
-  it('来源标记按草稿 ID 写进正文：新建用新 ID，重推用映射，原草稿不可用时换成新 ID', async () => {
+  it('来源参数按草稿 ID 写进正文：新建用新 ID，重推用映射，原草稿不可用时换成新 ID', async () => {
     const LINKS = '升级：https://example.org\n\n接口：https://example.com\n\n[价格](https://example.org/p?a=1)';
-    const config = normalizeConfig({
-      zhihu: { linkRef: { domains: ['example.org'], value: 'zhihu_afc_{{id}}' } },
-    });
+    const config = normalizeConfig({ zhihu: { linkRef: { domains: ['example.org'] } } });
     const a = await article(LINKS, 'zhihu');
     const bodies = (m: ReturnType<typeof setup>) =>
       m.calls('PATCH', PATCH_URL)
         .map((r) => ({ url: r.url, body: JSON.parse(bodyText(r)) }))
         .filter((r) => typeof r.body.content === 'string');
-    const ref = (id: string) => `ref=zhihu_afc_${encodeURIComponent(id)}`;
+    const ref = (id: string, amp = '&amp;') =>
+      ['utm_source=zhihu', 'utm_medium=social', `utm_content=${encodeURIComponent(id)}`].join(amp);
     const m = setup();
     const created = await zhihuPublisher.push(a, context(m.host, { config }));
     const [first] = bodies(m);
@@ -259,7 +258,7 @@ describe('知乎推送', () => {
     expect(first.body.content).toContain('>https://example.org</a>');
     expect(created.outcome === 'created' && created.warnings).toContainEqual({
       code: 'ZHIHU_LINK_REF',
-      message: '已给 2 处链接加上来源标记 ref=zhihu_afc_<DRAFT_ID>。',
+      message: `已给 2 处链接加上来源参数 ${ref('<DRAFT_ID>', '&')}。`,
     });
     m.state.drafts[SOURCE].zhihu!.draftId = 'MAPPED';
     await zhihuPublisher.push(a, context(m.host, { config }));
@@ -281,7 +280,7 @@ describe('知乎推送', () => {
     expect(fresh.body.content).toContain(ref('<DRAFT_ID>'));
     expect(fresh.body.content).not.toContain(ref('OLD'));
   });
-  it('没配置来源标记时，草稿正文与渲染结果逐字相同，也没有提示', async () => {
+  it('没配置来源参数时，草稿正文与渲染结果逐字相同，也没有提示', async () => {
     const m = setup();
     const a = await article('升级：https://example.org', 'zhihu');
     const result = await zhihuPublisher.push(a, context(m.host));
