@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { describe as describeArticle, TransportError, wechatPublisher } from '../../src/publish';
+import {
+  describe as describeArticle,
+  normalizeConfig,
+  TransportError,
+  wechatPublisher,
+} from '../../src/publish';
 import { article, context } from './article';
 import { sha256Hex } from '../../src/publish/hash';
 import { bodyText, mockHost, type Reply, type Route } from './mock-host';
@@ -187,6 +192,17 @@ describe('公众号推送', () => {
     const hash = await sha256Hex(new Uint8Array([0x89, 1]));
     expect(m.state.images[hash].wechat?.[APP_ID]).toMatch(/^http:\/\/mmbiz\.qpic\.cn/);
     expect(m.state.covers[hash].wechat?.[APP_ID]).toBe('<COVER_MEDIA_ID>');
+  });
+  it('知乎的链接来源标记不影响公众号正文', async () => {
+    const m = setup();
+    const config = normalizeConfig({
+      zhihu: { linkRef: { domains: ['example.org'], value: 'zhihu_{{id}}' } },
+    });
+    const a = await article(`${BODY}\n\n升级：[官网](https://example.org)`);
+    await wechatPublisher.push(a, context(m.host, { config }));
+    const add = JSON.parse(bodyText(m.calls('POST', /draft\/add/)[0])).articles[0];
+    expect(add.content).toContain('href="https://example.org"');
+    expect(add.content).not.toContain('?ref=');
   });
   it('重推更新原草稿，图片与封面走缓存不再上传', async () => {
     const m = setup();

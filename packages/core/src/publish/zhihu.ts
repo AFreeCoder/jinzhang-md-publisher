@@ -13,6 +13,7 @@ import {
 } from './host';
 import { hmacSha1Base64, md5Hex } from './hash';
 import { isPlatformHosted, type PreparedImage } from './images';
+import { tagZhihuLinks } from './link-ref';
 import {
   checkImages,
   draftMapping,
@@ -463,12 +464,18 @@ export const zhihuPublisher: Publisher = {
       if (article.cover)
         titleImage = (await store.entry(await images(ctx).prepare(article.cover), '上传封面'))
           .originalSrc;
-      const content = {
-        title: article.title,
-        content: placed.html,
-        table_of_contents: false,
-        delta_time: 30,
-        can_reward: false,
+      // 正文按草稿 ID 生成：草稿 ID 就是发布后的文章 ID，来源标记写进草稿，不必发布后再改。
+      const now = ctx.host.now();
+      let tagged: ReturnType<typeof tagZhihuLinks> | undefined;
+      const content = (id: string) => {
+        tagged = tagZhihuLinks(placed.html, ctx.config, id, now);
+        return {
+          title: article.title,
+          content: tagged.html,
+          table_of_contents: false,
+          delta_time: 30,
+          can_reward: false,
+        };
       };
       let draftId = ctx.newDraft
         ? undefined
@@ -478,7 +485,7 @@ export const zhihuPublisher: Publisher = {
       let outcome: 'created' | 'updated' = 'updated';
       if (draftId) {
         progress(ctx, '更新草稿');
-        if ((await api.patchDraft(draftId, content)) === 'gone') {
+        if ((await api.patchDraft(draftId, content(draftId))) === 'gone') {
           draftId = undefined;
           warnings.push({
             code: 'ZHIHU_DRAFT_GONE',
@@ -509,9 +516,14 @@ export const zhihuPublisher: Publisher = {
         }
         await save({ draftId, status: 'unverified' });
         progress(ctx, '写入草稿');
-        if ((await api.patchDraft(draftId, content)) === 'gone')
+        if ((await api.patchDraft(draftId, content(draftId))) === 'gone')
           throw new Error('新建的知乎草稿写入失败，请稍后重试');
       }
+      if (tagged?.count)
+        warnings.push({
+          code: 'ZHIHU_LINK_REF',
+          message: `已给 ${tagged.count} 处链接加上来源标记 ref=${tagged.ref}。`,
+        });
       if (titleImage)
         await api.patchDraft(draftId, {
           titleImage,

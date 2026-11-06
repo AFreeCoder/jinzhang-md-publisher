@@ -61,6 +61,33 @@ export interface JinzhangConfig {
     start: { slogan: string; producerName: string };
     proxy: string;
   };
+  zhihu: {
+    /**
+     * 推送和复制到知乎时，给这些域名（含子域名）的链接加 `ref` 来源参数，域名为空时不改动。
+     * `value` 里的 `{{id}}` 是知乎文章 ID（复制时用日期代替），`{{date}}` 是 `YYYYMMDD`。
+     */
+    linkRef: { domains: string[]; value: string };
+  };
+}
+const DOMAIN = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/;
+/** 来源标记的域名：去掉协议、路径、端口与开头的 `www.`，不合法的丢弃，去重。接受数组或用逗号、空白分隔的文本。 */
+export function parseDomains(raw: unknown): string[] {
+  const items = Array.isArray(raw)
+    ? raw.filter((item): item is string => typeof item === 'string')
+    : typeof raw === 'string'
+      ? raw.split(/[\s,，、;；]+/)
+      : [];
+  const domains: string[] = [];
+  for (const item of items) {
+    const domain = item
+      .trim()
+      .toLowerCase()
+      .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+      .replace(/[/:?#].*$/, '')
+      .replace(/^www\./, '');
+    if (DOMAIN.test(domain) && !domains.includes(domain)) domains.push(domain);
+  }
+  return domains;
 }
 export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends readonly unknown[]
@@ -90,6 +117,7 @@ export function defaultConfig(): JinzhangConfig {
       start: { slogan: '', producerName: '' },
       proxy: '',
     },
+    zhihu: { linkRef: { domains: [], value: 'zhihu_{{id}}' } },
   };
 }
 export const isRecord = (value: unknown): value is Record<string, any> =>
@@ -104,6 +132,8 @@ export function normalizeConfig(raw: unknown): JinzhangConfig {
   const wechat = isRecord(source.wechat) ? source.wechat : {};
   const card = isRecord(wechat.card) ? wechat.card : {};
   const start = isRecord(wechat.start) ? wechat.start : {};
+  const zhihu = isRecord(source.zhihu) ? source.zhihu : {};
+  const linkRef = isRecord(zhihu.linkRef) ? zhihu.linkRef : {};
   const blogs = normalizeBlogs(source.blogs);
   const targets: Target[] = Array.isArray(source.targets)
     ? [
@@ -138,6 +168,12 @@ export function normalizeConfig(raw: unknown): JinzhangConfig {
         producerName: pick(start.producerName, base.wechat.start.producerName).trim(),
       },
       proxy: pick(wechat.proxy, base.wechat.proxy).trim(),
+    },
+    zhihu: {
+      linkRef: {
+        domains: Array.isArray(linkRef.domains) ? parseDomains(linkRef.domains) : [],
+        value: pick(linkRef.value, '').trim() || base.zhihu.linkRef.value,
+      },
     },
   };
 }
