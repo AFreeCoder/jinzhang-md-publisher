@@ -13,6 +13,7 @@ export {
   isPrivateHost,
   type PreparedImage,
 } from './images';
+export { compactDate, LINK_REF_PARAM, linkRefValue, tagLinks, tagZhihuLinks } from './link-ref';
 export {
   wechatPublisher,
   probeEgressIp,

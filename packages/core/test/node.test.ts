@@ -82,6 +82,16 @@ describe('公共配置', () => {
     expect(raw.targets).toEqual(['zhihu']);
     expect(raw.version).toBe(1);
   });
+  it('知乎链接来源标记分两次保存，域名与标记互不覆盖，重新读取不丢', async () => {
+    await files.config.update({ zhihu: { linkRef: { domains: ['example.org'] } } });
+    await files.config.update({ zhihu: { linkRef: { value: 'zhihu_afc_{{id}}' } } });
+    expect((await files.config.read()).zhihu.linkRef).toEqual({
+      domains: ['example.org'],
+      value: 'zhihu_afc_{{id}}',
+    });
+    await files.config.update({ zhihu: { linkRef: { domains: [] } } });
+    expect((await files.config.read()).zhihu.linkRef.domains).toEqual([]);
+  });
   it('配置文件损坏时报错但不带出内容，也不覆盖原文件', async () => {
     await mkdir(dir, { recursive: true });
     await writeFile(files.config.file, '{"appSecret": "不该出现在错误里"');

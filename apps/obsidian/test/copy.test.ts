@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { ImageRef, RenderResult } from '@jinzhang/core';
 import {
+  compactDate,
   defaultConfig,
+  normalizeConfig,
   type HttpRequest,
   type HttpResponse,
   type OssCredentials,
@@ -85,6 +87,28 @@ const zhihu = (images: ImageRef[]) =>
     images,
   }) as unknown as RenderResult;
 describe('复制到知乎（不需要登录）', () => {
+  it('按配置加链接来源标记，复制时拿不到文章 ID，用当天日期代替；公众号复制不加', async () => {
+    const { context } = ossHost({ oss: null });
+    context.config = normalizeConfig({
+      zhihu: { linkRef: { domains: ['example.org'], value: 'zhihu_afc_{{id}}' } },
+    });
+    const html = '<p>升级：<a href="https://example.org">https://example.org</a></p>';
+    const date = compactDate(context.host.now());
+    const placed = await placeForCopy(
+      { platform: 'zhihu', html, images: [] } as unknown as RenderResult,
+      context,
+      () => {},
+    );
+    expect(placed.html).toBe(
+      `<p>升级：<a href="https://example.org/?ref=zhihu_afc_${date}">https://example.org</a></p>`,
+    );
+    const wechat = await placeForCopy(
+      { platform: 'wechat', html, images: [] } as unknown as RenderResult,
+      context,
+      () => {},
+    );
+    expect(wechat.html).toBe(html);
+  });
   it('没有图片时不发任何请求，也不要求配置图床', async () => {
     const { context, requests } = ossHost({ oss: null });
     const placed = await placeForCopy(zhihu([remote]), context, () => {});

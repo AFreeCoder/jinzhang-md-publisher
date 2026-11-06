@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createHmac } from 'node:crypto';
 import {
   createZhihuCopyStore,
+  normalizeConfig,
   parseZhihuCookies,
   saveZhihuLogin,
   TransportError,
@@ -237,6 +238,58 @@ describe('知乎推送', () => {
     expect(blocked).toMatchObject({ outcome: 'failed', error: { code: 'ZHIHU_RISK_CONTROL' } });
     expect(risky.calls('POST', `${ZHUANLAN}/api/articles/drafts`)).toHaveLength(0);
     expect(risky.state.drafts[SOURCE].zhihu?.draftId).toBe('OLD');
+  });
+  it('来源标记按草稿 ID 写进正文：新建用新 ID，重推用映射，原草稿不可用时换成新 ID', async () => {
+    const LINKS = '升级：https://example.org\n\n接口：https://example.com\n\n[价格](https://example.org/p?a=1)';
+    const config = normalizeConfig({
+      zhihu: { linkRef: { domains: ['example.org'], value: 'zhihu_afc_{{id}}' } },
+    });
+    const a = await article(LINKS, 'zhihu');
+    const bodies = (m: ReturnType<typeof setup>) =>
+      m.calls('PATCH', PATCH_URL)
+        .map((r) => ({ url: r.url, body: JSON.parse(bodyText(r)) }))
+        .filter((r) => typeof r.body.content === 'string');
+    const ref = (id: string) => `ref=zhihu_afc_${encodeURIComponent(id)}`;
+    const m = setup();
+    const created = await zhihuPublisher.push(a, context(m.host, { config }));
+    const [first] = bodies(m);
+    expect(first.body.content).toContain(`href="https://example.org/?${ref('<DRAFT_ID>')}">`);
+    expect(first.body.content).toContain(`href="https://example.org/p?a=1&amp;${ref('<DRAFT_ID>')}"`);
+    expect(first.body.content).toContain('href="https://example.com"');
+    expect(first.body.content).toContain('>https://example.org</a>');
+    expect(created.outcome === 'created' && created.warnings).toContainEqual({
+      code: 'ZHIHU_LINK_REF',
+      message: '已给 2 处链接加上来源标记 ref=zhihu_afc_<DRAFT_ID>。',
+    });
+    m.state.drafts[SOURCE].zhihu!.draftId = 'MAPPED';
+    await zhihuPublisher.push(a, context(m.host, { config }));
+    const second = bodies(m)[1];
+    expect(second.url).toContain('/MAPPED/draft');
+    expect(second.body.content).toContain(ref('MAPPED'));
+    const gone = setup({ patch: [{ status: 404, json: Z.draft_not_found }, { json: {} }] });
+    gone.state = {
+      ...gone.state,
+      drafts: {
+        [SOURCE]: {
+          zhihu: { account: '<USER_ID>', draftId: 'OLD', status: 'confirmed', updatedAt: '' },
+        },
+      },
+    };
+    await zhihuPublisher.push(a, context(gone.host, { config }));
+    const [stale, fresh] = bodies(gone);
+    expect(stale.body.content).toContain(ref('OLD'));
+    expect(fresh.body.content).toContain(ref('<DRAFT_ID>'));
+    expect(fresh.body.content).not.toContain(ref('OLD'));
+  });
+  it('没配置来源标记时，草稿正文与渲染结果逐字相同，也没有提示', async () => {
+    const m = setup();
+    const a = await article('升级：https://example.org', 'zhihu');
+    const result = await zhihuPublisher.push(a, context(m.host));
+    const [content] = m.calls('PATCH', PATCH_URL).map((r) => JSON.parse(bodyText(r)));
+    expect(content.content).toBe(a.html);
+    expect(result.outcome === 'created' && result.warnings.map((w) => w.code)).not.toContain(
+      'ZHIHU_LINK_REF',
+    );
   });
   it('建草稿超时记为结果不确定，确认后才重建', async () => {
     const m = setup({ create: [new TransportError('timeout'), { json: Z.draft_created }] });
