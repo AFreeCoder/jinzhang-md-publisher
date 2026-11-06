@@ -70,6 +70,55 @@ export function template(source: string, values: Record<string, string>) {
     .map((line) => line.replace(/\{\{(\w+)\}\}/g, (_, key) => escapeHtml(value(key))))
     .join('\n');
 }
+/** 非 ASCII 的标点、空白与符号不会是网址的一部分，裸网址在这里截断。 */
+const URL_STOP = /(?![\x00-\x7f])[\p{P}\p{Z}\p{S}]/u;
+const inlineParser = unified().use(remarkParse).use(remarkGfm);
+/** 裸网址（GFM autolink literal）返回原文；显式链接与 `<地址>` 返回空串。 */
+function bareUrl(node: any, source: string): string {
+  if (node.type !== 'link' || node.children.length !== 1 || node.children[0].type !== 'text')
+    return '';
+  const text: string = node.children[0].value;
+  if (!/^(?:https?:\/\/|www\.)/i.test(text)) return '';
+  if (node.position)
+    return source.slice(node.position.start.offset, node.position.end.offset) === text ? text : '';
+  // 跟在中文等字符后面的网址由 mdast 补充识别，这类节点没有位置。
+  return node.url === text || node.url === `http://${text}` ? text : '';
+}
+/**
+ * GFM 把裸网址后直到空白的字符都算进链接，中文标点和后面的文字也会被吞进去。
+ * 在第一个非 ASCII 标点、空白或符号处截断，剩下的按 Markdown 重新解析，其中的网址同样处理。
+ * 网址直接连着中文文字时不截断，中文路径是合法写法。解析时带上全文，脚注与引用式链接才认得出定义。
+ */
+function splitBareUrls(source: string, document: string): any[] {
+  const combined = `${source}\n\n${document}`;
+  const paragraph = inlineParser.parse(combined).children[0] as any;
+  const nodes: any[] = [];
+  for (const node of paragraph?.type === 'paragraph' ? paragraph.children : []) {
+    const literal = bareUrl(node, combined);
+    const stop = literal ? literal.search(URL_STOP) : -1;
+    if (stop <= 0) {
+      nodes.push(node);
+    } else if (node.position) {
+      // 截断点之后的原文整体重新解析：GFM 把结尾不成对的 ] ) 留在链接外，只截链接会拆开 [^1]。
+      const cut = node.position.start.offset + stop;
+      nodes.push(
+        ...splitBareUrls(source.slice(node.position.start.offset, cut), document),
+        ...splitBareUrls(source.slice(cut), document),
+      );
+      break;
+    } else {
+      nodes.push(
+        ...splitBareUrls(literal.slice(0, stop), document),
+        ...splitBareUrls(literal.slice(stop), document),
+      );
+    }
+  }
+  for (const node of nodes)
+    visit(node, (n: any) => {
+      delete n.position;
+    });
+  return nodes;
+}
 async function parse(markdown: string, warnings: Warning[], privateSyntax = false): Promise<Root> {
   const imageUrls = new Map<number, string>();
   const processor = unified()
@@ -106,30 +155,27 @@ async function parse(markdown: string, warnings: Warning[], privateSyntax = fals
               : undefined;
         if (url !== undefined && node.position) imageUrls.set(node.position.start.offset, url);
       });
+      // 只修正裸网址吞进去的中文标点与文字，保留用户显式指定的链接目标。
+      // 连同紧跟的文字一起重新解析，所以放在软换行处理之前。
+      visit(tree, 'link', (node: any, index, parent: any) => {
+        if (index === undefined || !parent) return;
+        const literal = bareUrl(node, markdown);
+        if (!literal || literal.search(URL_STOP) < 0) return;
+        const next = parent.children[index + 1];
+        const extend = !!node.position && next?.type === 'text' && !!next.position;
+        const source = extend
+          ? markdown.slice(node.position.start.offset, next.position.end.offset)
+          : literal;
+        const nodes = splitBareUrls(source, markdown);
+        parent.children.splice(index, extend ? 2 : 1, ...nodes);
+        return index + nodes.length;
+      });
       // 中文段落里的软换行不是词间空格；保留会在成品里多出一个空隙。
       visit(tree, 'text', (node: any) => {
         node.value = node.value.replace(
           /([\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]) *\n *(?=[\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef])/g,
           '$1',
         );
-      });
-      visit(tree, 'link', (node: any, index, parent: any) => {
-        if (index === undefined || !parent || !node.position) return;
-        const source = markdown.slice(node.position.start.offset, node.position.end.offset);
-        // 仅修正裸网址的句尾中文标点，保留用户显式指定的链接目标。
-        if (
-          !/^https?:\/\//i.test(source) ||
-          node.children.length !== 1 ||
-          node.children[0].value !== source
-        )
-          return;
-        const suffix = source.match(/[，。；：！？、]+$/)?.[0];
-        if (!suffix) return;
-        const url = source.slice(0, -suffix.length);
-        node.url = url;
-        node.children[0].value = url;
-        parent.children.splice(index + 1, 0, { type: 'text', value: suffix });
-        return index + 2;
       });
       visit(tree, (node: any) => {
         if (!/Directive$/.test(node.type)) return;

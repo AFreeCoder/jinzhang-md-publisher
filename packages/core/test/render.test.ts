@@ -43,6 +43,44 @@ describe('共享渲染', () => {
       expect(html).toContain('href="https://example.test/%E3%80%82"');
     }
   });
+  it('裸网址在中文标点、全角空白或符号处截断，后面的文字留在正文，其中的网址照样识别', async () => {
+    const source = [
+      '看下：https://example.org，都是走的正规渠道。',
+      '',
+      '官网：https://a.test，接口：www.b.test/v1（备用）',
+      '',
+      '“https://c.test”　《https://d.test/x》🎉结束',
+      '',
+      '详见 https://e.test。[^1]',
+      '',
+      'https://f.test，第一行',
+      '第二行，\\*不是强调\\*',
+      '',
+      '[^1]: 注释',
+    ].join('\n');
+    for (const platform of ['wechat', 'zhihu'] as const) {
+      const { html, text } = render(await make(source, platform));
+      const hrefs = [...html.matchAll(/<a [^>]*href="([^"]*)"/g)].map((m) => m[1]);
+      for (const url of [
+        'https://example.org',
+        'https://a.test',
+        'http://www.b.test/v1',
+        'https://c.test',
+        'https://d.test/x',
+        'https://e.test',
+        'https://f.test',
+      ])
+        expect(hrefs).toContain(url);
+      expect(hrefs.join(' ')).not.toMatch(/%E|%F0/);
+      expect(text).toContain('看下：https://example.org，都是走的正规渠道。');
+      expect(text).toContain('接口：www.b.test/v1（备用）');
+      expect(text).toContain('》🎉结束');
+      // 截断后的脚注调用仍然认得出定义；重新解析的文字照常去掉中文软换行、保留转义。
+      expect(text).not.toContain('[^1]');
+      expect(text).toContain('https://f.test，第一行第二行，*不是强调*');
+      expect(html).not.toContain('<em>不是强调');
+    }
+  });
   it('清理恶意 HTML 与协议，收集原始 HTML 图片', async () => {
     const p = await make(
       '<script>alert(1)</script><img src="./a.png" onerror="alert(2)"><iframe src="https://evil.test"></iframe>\n\n[x](javascript:alert)',
