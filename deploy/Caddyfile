@@ -1,13 +1,37 @@
+# 宿主 Caddy 的锦章站点片段，与 silicon 线上配置一致。
+# 依赖宿主 Caddyfile 中已定义的 (cloudflare_ips) 片段，内容为一条
+# remote_ip 列出 https://www.cloudflare.com/ips/ 的全部网段；缺少时 caddy validate 会报错。
+# 站点只收 Cloudflare 回源：DNS 记录必须开启 Cloudflare 代理，否则所有访客都会被断开。
+
 jinzhang.ink {
+    # 只放行 Cloudflare 回源和本机，其他来源直接断开。
+    @not_cloudflare {
+        not {
+            import cloudflare_ips
+        }
+        not remote_ip 127.0.0.1/8 ::1
+    }
+    abort @not_cloudflare
     request_body {
         max_size 8KB
     }
+    # 对端只可能是 Cloudflare，Cf-Connecting-Ip 由 Cloudflare 写入，访客无法伪造。
     reverse_proxy 127.0.0.1:17622 {
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+        header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
     }
 }
 
 www.jinzhang.ink {
-    redir https://jinzhang.ink{uri} permanent
+    # 只放行 Cloudflare 回源和本机，其他来源直接断开。
+    @not_cloudflare {
+        not {
+            import cloudflare_ips
+        }
+        not remote_ip 127.0.0.1/8 ::1
+    }
+    route {
+        abort @not_cloudflare
+        redir https://jinzhang.ink{uri} permanent
+    }
 }

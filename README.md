@@ -56,7 +56,7 @@ pnpm --filter @jinzhang/web start
 
 需要 Node 服务端运行时；不能用静态导出替代图片接口。生产环境使用 HTTPS，并按实际域名配置 Origin、OSS CORS 与限流。
 
-合入 `main` 后，GitHub Actions 按顺序自动完成检查、镜像构建和 silicon 部署；Codex 跟踪任务结果并进行线上验收。首次启用所需的部署凭据、备份与失败恢复见 [部署说明](docs/deployment.md)。
+合入 `main` 后，GitHub Actions 自动完成检查和镜像构建；2026-11-25 起 silicon 部署改为人工执行，Codex 跟踪任务结果并进行线上验收。人工发布步骤、备份与失败恢复见 [部署说明](docs/deployment.md)。
 
 ## 目录与范围
 
