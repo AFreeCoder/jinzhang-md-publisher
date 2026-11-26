@@ -1,14 +1,14 @@
 # 锦章生产部署
 
-目标为 silicon（硅谷，SSH 别名 `silicon`），域名 `https://jinzhang.ink`。腾讯云保留注册与续费，Cloudflare 托管权威 DNS。使用仅 DNS 的 A 记录指向 `49.51.206.62`；`www` 跳转到主域名。NS 为 `bob.ns.cloudflare.com`、`lucy.ns.cloudflare.com`。
+目标为 silicon（硅谷，SSH 别名 `silicon`），域名 `https://jinzhang.ink`。腾讯云保留注册与续费，Cloudflare 托管权威 DNS。A 记录指向 silicon 并开启 Cloudflare 代理，源站只接受 Cloudflare 回源；`www` 跳转到主域名。NS 为 `bob.ns.cloudflare.com`、`lucy.ns.cloudflare.com`。
 
 ## 架构与配置
 
-宿主 Caddy 自动签发 HTTPS，转发到本机 `127.0.0.1:17622` 的 HAProxy，再到隔离 Docker 网络内 Next.js standalone 服务。Next.js 容器内存上限 1 GiB、CPU 上限 1 核；HAProxy 上限 128 MiB、0.25 核。应用不使用数据库。
+访客经 Cloudflare 代理到达宿主 Caddy。Caddy 自动签发 HTTPS，只放行 Cloudflare 回源和本机，其他来源直接断开连接；放行的请求转发到本机 `127.0.0.1:17622` 的 HAProxy，再到隔离 Docker 网络内 Next.js standalone 服务。Next.js 容器内存上限 1 GiB、CPU 上限 1 核；HAProxy 上限 128 MiB、0.25 核。应用不使用数据库。
 
-`/home/work/online/jinzhang` 保存 Compose、HAProxy 配置和权限为 0600 的 `.env.production`。环境变量参考 `apps/web/.env.example`，生产 Origin 为 `https://jinzhang.ink`。OSS 使用北京地域专用私有桶 `jinzhang-md`，`transit/` 一天生命周期；原有本地开发 CORS 保留并增加生产 Origin。密钥不进入镜像、Git 或日志。
+`/opt/jinzhang`（2026-11-25 迁入，root 所有，权限 0700）保存 Compose、HAProxy 配置和权限为 0600 的 `.env.production`。环境变量参考 `apps/web/.env.example`，生产 Origin 为 `https://jinzhang.ink`。OSS 使用北京地域专用私有桶 `jinzhang-md`，`transit/` 一天生命周期；原有本地开发 CORS 保留并增加生产 Origin。密钥不进入镜像、Git 或日志。
 
-两个图片接口共用每 IP 每分钟 60 次、滚动 24 小时 1000 次限额。HAProxy 计数在代理内存中，重启会清零，不用于计费。Caddy 覆盖 `X-Real-IP` 防止外部伪造，网关端口仅本机可达。`complete` 后端最多两条并发连接，排队上限 8、等待最多 5 秒；超过容量返回失败，客户端可重试。Caddy 请求体上限 8 KiB，图片通过浏览器直传 OSS，不经过该请求体。
+两个图片接口共用每 IP 每分钟 60 次、滚动 24 小时 1000 次限额。HAProxy 计数在代理内存中，重启会清零，不用于计费。Caddy 用 Cloudflare 写入的 `Cf-Connecting-Ip` 覆盖 `X-Real-IP` 和 `X-Forwarded-For`：源站只收 Cloudflare 回源，访客伪造不了这个头，限额按访客真实 IP 计算。网关端口仅本机可达。`complete` 后端最多两条并发连接，排队上限 8、等待最多 5 秒；超过容量返回失败，客户端可重试。Caddy 请求体上限 8 KiB，图片通过浏览器直传 OSS，不经过该请求体。
 
 ## 构建与发布
 
@@ -21,11 +21,30 @@
 3. 镜像构建成功后，`needs` 依赖自动调用 `.github/workflows/deploy.yml`（`Deploy to Silicon`）。构建输出的镜像 digest 直接传给部署任务，不通过可变标签猜测版本，也不需要 Codex 再发起部署。
 4. Actions 调用 `scripts/deploy-ssh.sh`，通过已校验主机密钥的 SSH 上传该提交的部署文件，调用服务器上的临时 `deploy/release.sh`。源码 checkout、镜像 revision、本机和公网健康接口都必须对应本次完整 SHA。
 
+**2026-11-25 起生产发布改为人工执行。** GitHub 托管机器已无法 SSH 到 silicon，自动部署用的 Secret 也已清空，第 3、4 步的 `Deploy to Silicon` 会失败；第 1、2 步的检查和镜像构建照常运行。人工发布见下文「人工发布」。
+
 手动重发使用 `Build and Deploy` 的 `workflow_dispatch`，选择 main，仍完整执行检查、构建、部署。非 main 的手动运行不会发布；`deploy.yml` 只允许内部复用，不能手动绕过检查。Obsidian 的 tag 发布仍独立，只生成插件 Release，不触发网站部署。
 
-部署使用 GitHub 的 `jinzhang-production` 并发组，不取消正在进行的发布；服务器另外持有 `/home/work/online/jinzhang/.release.lock`。SSH 前以及服务器持锁后的镜像预检前后都会核对远端 main；过期版本跳过，查询失败则停止。跳过发布不代表该 SHA 已上线，Codex 必须核对实际健康版本。
+部署使用 GitHub 的 `jinzhang-production` 并发组，不取消正在进行的发布；服务器另外持有 `/opt/jinzhang/.release.lock`。SSH 前以及服务器持锁后的镜像预检前后都会核对远端 main；过期版本跳过，查询失败则停止。跳过发布不代表该 SHA 已上线，Codex 必须核对实际健康版本。
+
+### 人工发布
+
+1. 合入 main，等 `Build and Deploy` 的检查和镜像构建成功（部署任务失败属预期），从镜像构建日志取标签 `sha-<完整提交>` 对应的镜像 digest。
+2. 以管理员身份 SSH 登录 silicon，把该提交的 `deploy/` 目录上传到一个临时目录（发布脚本要求它与部署目录不同）。
+3. 以 root 执行下面的命令。镜像包需要登录时传第三个参数（GitHub 用户名），令牌（`read:packages`）经标准输入传入，不写进命令行：
+
+   ```bash
+   JINZHANG_DEPLOY_DIR=/opt/jinzhang JINZHANG_BACKUP_ROOT=/opt/backups/jinzhang bash <临时目录>/deploy/release.sh <镜像 digest> <完整 SHA> [GitHub 用户名]
+   ```
+
+   两个变量必须设置：脚本默认的 `/home/work/...` 是迁移前的路径，已不存在，漏设时脚本在预检阶段就会退出。预检、备份、自动恢复和验收与自动流程相同；目标 SHA 不是远端 main 的最新提交时同样跳过。
+4. 删除临时目录，核对公网 `/api/health` 的 `revision`。
+
+本流程依据脚本接口和 11-25 的迁移整理，还没有按它完整发布过，首次使用时请逐步核对。
 
 ## 首次启用
+
+本节是 11-25 之前自动部署的启用配置，下表三个 Secret 现已清空，仅作留档。
 
 合入自动部署改造前，在锦章仓库配置以下 Actions secrets；部署环境准备就绪后再合入，合入本身会触发生产发布：
 
@@ -37,7 +56,7 @@
 
 主机密钥必须先与现有可信 SSH 记录或服务器控制台核对，不能把未经验证的 `ssh-keyscan` 输出直接作为信任依据。缺少凭据或主机密钥不匹配时部署失败，不降级关闭校验。
 
-服务器需有 Bash、Git、Docker Compose、Python 3、curl、flock，能访问 GitHub/GHCR，并保留健康的现有锦章实例和部署目录。`work` 需可管理 Docker、写入部署与备份目录、读取 Caddyfile。此流程用于现有站点升级，不负责首次装机。拉取 GHCR 使用任务的临时 `GITHUB_TOKEN`（`packages: read`），经 SSH 标准输入传入；Docker 登录目录位于私有临时目录，退出时删除，不需要长期 GHCR PAT。包需允许本仓库 Actions 读取。
+服务器需有 Bash、Git、Docker Compose、Python 3、curl、flock，能访问 GitHub/GHCR，并保留健康的现有锦章实例和部署目录。11-25 起部署与备份目录归 root 所有，发布以 root 执行。此流程用于现有站点升级，不负责首次装机。拉取 GHCR 使用任务的临时 `GITHUB_TOKEN`（`packages: read`），经 SSH 标准输入传入；Docker 登录目录位于私有临时目录，退出时删除，不需要长期 GHCR PAT。包需允许本仓库 Actions 读取。
 
 `.env.production` 继续仅存服务器，应用密钥不进入 GitHub、镜像或日志。首页静态内容的 `JINZHANG_SKILL_INSTALL` 取自仓库 Actions 变量，在镜像构建时注入，写到服务器环境文件无效；修改后在 main 手动运行完整发布流水线或等待下一次 main 推送。插件安装包从同一提交构建，推 tag 后需要发布包含对应版本的网站镜像才会更新下载。
 
@@ -45,11 +64,11 @@
 
 `deploy/release.sh` 先核对当前容器、`.env` 的旧镜像和健康版本一致，拉取新镜像并核对 revision，再在私有临时目录校验 Compose 与 HAProxy 配置。预检失败不会替换现有应用。
 
-变更生效前，将 `.env`、已有的 `.env.previous`、`.env.production`、Compose、HAProxy 配置及宿主 Caddyfile 备份到 `/home/work/backups/jinzhang/<时间>-<提交前缀>.<随机后缀>/`，核对关键文件副本一致。目录权限 0700，文件 0600；`release.txt` 保存新旧 SHA 和镜像引用。备份失败停止发布，备份只留服务器，不上传 Actions artifact；当前不自动删除历史备份或镜像。
+变更生效前，将 `.env`、已有的 `.env.previous`、`.env.production`、Compose、HAProxy 配置及宿主 Caddyfile 备份到 `JINZHANG_BACKUP_ROOT`（生产为 `/opt/backups/jinzhang`）下的 `<时间>-<提交前缀>.<随机后缀>/`，核对关键文件副本一致。目录权限 0700，文件 0600；`release.txt` 保存新旧 SHA 和镜像引用。备份失败停止发布，备份只留服务器，不上传 Actions artifact；当前不自动删除历史备份或镜像。
 
 随后复制候选 Compose/HAProxy 配置，写入新 digest，并通过 `docker compose up -d --force-recreate --wait --wait-timeout 120 web gateway` 更新两个服务。必须重新创建 gateway 才能确保挂载的 HAProxy 新配置生效。本次保留单实例架构，替换容器时可能短暂不可用，网关重建也会清空内存限流计数；没有引入 GPT101 的双槽位切流。
 
-正常发布不修改或 reload 宿主 Caddy。首次装机的站点片段见 `deploy/Caddyfile`，需另外备份完整配置、执行 `caddy validate` 后 reload，保留其他站点。
+正常发布不修改或 reload 宿主 Caddy。首次装机的站点片段见 `deploy/Caddyfile`，需另外备份完整配置、执行 `caddy validate` 后 reload，保留其他站点。片段与 2026-11-26 起的线上配置一致，依赖宿主 Caddyfile 里定义的 `(cloudflare_ips)` 片段（Cloudflare 官方公布的全部网段）。DNS 改回仅 DNS 之前（例如 Cloudflare 故障时应急），必须先去掉两个站点里的 `abort @not_cloudflare`，并把 `X-Real-IP`、`X-Forwarded-For` 改回 `{remote_host}`，否则所有访客都会被断开。
 
 ## 验收与恢复
 
